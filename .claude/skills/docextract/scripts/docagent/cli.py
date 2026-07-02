@@ -3,20 +3,18 @@
     python -m docagent <サブコマンド> [オプション]
 
 サブコマンド一覧:
-  init            ストアと categories.json を初期化
-  prep            分析準備 (必要なら登録し、カテゴリ一覧+本文抜粋を1回で返す)
-  add             docextract の result.json を取り込み登録
-  set-category    カテゴリを設定 (固定タクソノミー内)
-  set-summary     要約・キーワードを設定
-  set             カテゴリ/要約/キーワードをまとめて更新
-  get             1 文書を表示
-  text            本文テキストのみを出力 (座標等を除いた要約用の軽量ビュー)
-  list            全文書を一覧
-  query           条件で絞り込み
-  stats           カテゴリ別・ステータス別の集計
-  export          集約 JSON 全体を出力
-  remove          文書を削除
-  categories      タクソノミーの表示・追加・削除
+  現状把握 (doc-indexer):
+    init          ストアと doctypes.json / facts.json を初期化
+    add           docextract の result.json を取り込み登録
+    sync          抽出マニフェストの全文書を一括で登録/更新
+    prep          取り込み準備 (必要なら登録し、種別候補+本文抜粋を1回で返す)
+    set-doctype   文書種別を設定 (定義内に正規化)
+    doctypes      文書種別の表示・追加・削除
+    list/query/stats/get/text/export/remove   参照・整理
+  横断検索 (corpus-qa):
+    search        本文を横断検索し出典 (doc_id + location) 付きで返す
+  仕様の洗い出し (spec-extractor):
+    fact-add / facts / fact-remove / facts-stats / facts-export / item-types
 
 すべてのサブコマンドは ``--json`` で機械可読な JSON を出力する
 (エージェントはこれをパースして次の操作を決める)。``--store`` で保存先を変更できる。
@@ -34,7 +32,7 @@ from docextract import paths as _paths
 
 from .facts import FactStore
 from .store import (
-    DEFAULT_CATEGORIES,
+    DEFAULT_DOCTYPES,
     DEFAULT_STORE,
     DocAgentError,
     Library,
@@ -42,7 +40,7 @@ from .store import (
 
 
 def _load(args: argparse.Namespace) -> Library:
-    return Library.load(args.store, args.categories)
+    return Library.load(args.store, args.doctypes)
 
 
 def _load_facts(args: argparse.Namespace) -> FactStore:
@@ -57,19 +55,18 @@ def _emit(obj, as_json: bool, human) -> None:
 
 
 def _doc_line(d: dict) -> str:
-    cat = d.get("category") or "—"
-    status = d.get("status", "registered")
-    summ = (d.get("summary") or "").replace("\n", " ")
-    if len(summ) > 40:
-        summ = summ[:40] + "…"
-    return f"[{status:10}] {d['id']:24} {cat:12} {summ}"
+    dt = d.get("doctype") or "—"
+    preview = (d.get("preview") or "").replace("\n", " ")
+    if len(preview) > 48:
+        preview = preview[:48] + "…"
+    return f"[{dt:12}] {d['id']:26} {preview}"
 
 
 # ── サブコマンド実装 ─────────────────────────────────────────
 def cmd_init(args):
     lib = _load(args)
     lib.save()
-    lib.save_categories()
+    lib.save_doctypes()
     # ファクトストアと種別定義も同時に用意する (spec-extractor 用)。
     fs = _load_facts(args)
     fs.save()
@@ -78,14 +75,14 @@ def cmd_init(args):
         {
             "store": str(lib.path),
             "facts": str(fs.path),
-            "categories": lib.categories,
+            "doctypes": lib.doctypes,
             "item_types": fs.item_types,
             "documents": len(lib.documents),
         },
         args.json,
         lambda o: print(
             f"初期化しました。\n  ストア: {o['store']}\n  ファクト: {o['facts']}\n"
-            f"  カテゴリ: {', '.join(o['categories'])}\n"
+            f"  文書種別: {', '.join(o['doctypes'])}\n"
             f"  ファクト種別: {', '.join(o['item_types'])}\n"
             f"  登録済み文書: {o['documents']} 件"
         ),
@@ -97,12 +94,10 @@ def cmd_prep(args):
     payload = lib.prep(args.target, max_chars=args.max_chars)
 
     def human(o):
-        if o["already_analyzed"]:
-            print(f"解析済み: {o['id']} ({o['category']}) — スキップ対象")
-        else:
-            print(f"準備完了: {o['id']} (status={o['status']})")
-            print(f"カテゴリ候補: {', '.join(o['categories'])}")
-            print(f"次の一手: {o['next_action']}")
+        state = "分類済み" if o["already_classified"] else "未分類"
+        print(f"準備完了: {o['id']} (文書種別={o['doctype'] or '—'} / {state})")
+        print(f"文書種別の候補: {', '.join(o['doctypes'])}")
+        print(f"次の一手: {o['next_action']}")
 
     _emit(payload, args.json, human)
 
@@ -115,69 +110,25 @@ def cmd_add(args):
         entry,
         args.json,
         lambda o: print(
-            f"登録しました: {o['id']} (source={o['source']}, type={o['file_type']}, "
-            f"status={o['status']})"
+            f"登録しました: {o['id']} (source={o['source']}, type={o['file_type']})"
         ),
     )
 
 
-def cmd_set_category(args):
+def cmd_set_doctype(args):
     lib = _load(args)
     doc_id, auto = _resolve_target(lib, args.id)
-    doc = lib.set_category(doc_id, args.category, force=args.force)
+    doc = lib.set_doctype(doc_id, args.doctype, force=args.force)
     lib.save()
-    normalized_from = args.category if args.category != doc["category"] else None
-    payload = _doc_payload(doc, auto_registered=auto, category_normalized_from=normalized_from)
+    normalized_from = args.doctype if args.doctype != doc["doctype"] else None
+    payload = _doc_payload(doc, auto_registered=auto, doctype_normalized_from=normalized_from)
 
     def human(o):
         if auto:
             print(f"自動登録しました (前段の登録を補完): {doc_id}")
         if normalized_from:
-            print(f"カテゴリを正規化: 「{normalized_from}」→「{doc['category']}」")
-        print(f"カテゴリを設定: {o['id']} -> {o['category']} (status={o['status']})")
-
-    _emit(payload, args.json, human)
-
-
-def cmd_set_summary(args):
-    lib = _load(args)
-    doc_id, auto = _resolve_target(lib, args.id)
-    keywords = _split_keywords(args.keywords)
-    doc = lib.set_summary(doc_id, args.text, keywords)
-    lib.save()
-    payload = _doc_payload(doc, auto_registered=auto)
-
-    def human(o):
-        if auto:
-            print(f"自動登録しました (前段の登録を補完): {doc_id}")
-        print(f"要約を設定: {o['id']} (status={o['status']})")
-
-    _emit(payload, args.json, human)
-
-
-def cmd_set(args):
-    lib = _load(args)
-    doc_id, auto = _resolve_target(lib, args.id)
-    keywords = _split_keywords(args.keywords) if args.keywords is not None else None
-    doc = lib.update(
-        doc_id,
-        category=args.category,
-        summary=args.summary,
-        keywords=keywords,
-        force=args.force,
-    )
-    lib.save()
-    normalized_from = (
-        args.category if (args.category is not None and args.category != doc["category"]) else None
-    )
-    payload = _doc_payload(doc, auto_registered=auto, category_normalized_from=normalized_from)
-
-    def human(o):
-        if auto:
-            print(f"自動登録しました (前段の登録を補完): {doc_id}")
-        if normalized_from:
-            print(f"カテゴリを正規化: 「{normalized_from}」→「{doc['category']}」")
-        print(f"更新しました: {o['id']} (category={o['category']}, status={o['status']})")
+            print(f"文書種別を正規化: 「{normalized_from}」→「{doc['doctype']}」")
+        print(f"文書種別を設定: {o['id']} -> {o['doctype']}")
 
     _emit(payload, args.json, human)
 
@@ -210,9 +161,7 @@ def cmd_list(args):
 
 def cmd_query(args):
     lib = _load(args)
-    docs = lib.query(
-        category=args.category, status=args.status, keyword=args.keyword, text=args.text
-    )
+    docs = lib.query(doctype=args.doctype, text=args.text)
     _emit(
         docs,
         args.json,
@@ -228,12 +177,9 @@ def cmd_stats(args):
 
     def human(o):
         print(f"合計: {o['total']} 件")
-        print("カテゴリ別:")
-        for k, v in sorted(o["by_category"].items(), key=lambda x: -x[1]):
-            print(f"  {k:14} {v}")
-        print("ステータス別:")
-        for k, v in o["by_status"].items():
-            print(f"  {k:14} {v}")
+        print("文書種別別:")
+        for k, v in sorted(o["by_doctype"].items(), key=lambda x: -x[1]):
+            print(f"  {k:16} {v}")
 
     _emit(s, args.json, human)
 
@@ -255,20 +201,20 @@ def cmd_remove(args):
     _emit(doc, args.json, lambda o: print(f"削除しました: {o['id']}"))
 
 
-def cmd_categories(args):
+def cmd_doctypes(args):
     lib = _load(args)
     if args.action == "add" and args.name:
-        lib.add_category(args.name)
-        lib.save_categories()
+        lib.add_doctype(args.name)
+        lib.save_doctypes()
         lib.save()
     elif args.action == "remove" and args.name:
-        lib.remove_category(args.name)
-        lib.save_categories()
+        lib.remove_doctype(args.name)
+        lib.save_doctypes()
         lib.save()
     _emit(
-        lib.categories,
+        lib.doctypes,
         args.json,
-        lambda o: print("カテゴリ (固定タクソノミー):\n" + "\n".join(f"  - {c}" for c in o)),
+        lambda o: print("文書種別:\n" + "\n".join(f"  - {c}" for c in o)),
     )
 
 
@@ -444,7 +390,7 @@ def _resolve_target(lib: Library, target: str) -> tuple[str, bool]:
 def _doc_payload(doc: dict, **flags) -> dict:
     """出力用に doc のコピーへ透明化フラグを添える (ストアには保存しない)。
 
-    ``auto_registered`` / ``category_normalized_from`` のように「スクリプトが
+    ``auto_registered`` / ``doctype_normalized_from`` のように「スクリプトが
     何を自動補正したか」を呼び出し元へ必ず返し、黙って直さない。
     """
     payload = dict(doc)
@@ -467,7 +413,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--store", default=argparse.SUPPRESS, help=f"集約 JSON の保存先 (既定 {DEFAULT_STORE})"
     )
     common.add_argument(
-        "--categories", default=argparse.SUPPRESS, help="タクソノミー定義ファイル"
+        "--doctypes", default=argparse.SUPPRESS, help="文書種別の定義ファイル"
     )
     common.add_argument(
         "--json", action="store_true", default=argparse.SUPPRESS, help="機械可読な JSON で出力"
@@ -487,9 +433,9 @@ def build_parser() -> argparse.ArgumentParser:
     def add(name, help_):
         return sub.add_parser(name, help=help_, parents=[common])
 
-    add("init", "ストアと categories.json を初期化").set_defaults(func=cmd_init)
+    add("init", "ストアと doctypes.json / facts.json を初期化").set_defaults(func=cmd_init)
 
-    sp = add("prep", "分析準備: 必要なら登録し、カテゴリ一覧+本文抜粋を1回で返す")
+    sp = add("prep", "取り込み準備: 必要なら登録し、種別候補+本文抜粋を1回で返す")
     sp.add_argument("target", help="result.json のパス、または登録済み文書 ID")
     sp.add_argument("--max-chars", type=int, default=8000, help="本文抜粋の最大文字数 (既定 8000)")
     sp.set_defaults(func=cmd_prep)
@@ -499,31 +445,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--overwrite", action="store_true", help="同一 ID を上書き")
     sp.set_defaults(func=cmd_add)
 
-    sp = add("set-category", "カテゴリを設定")
+    sp = add("set-doctype", "文書種別を設定 (定義内に正規化)")
     sp.add_argument("id")
-    sp.add_argument("category")
-    sp.add_argument("--force", action="store_true", help="タクソノミー外でも許可")
-    sp.set_defaults(func=cmd_set_category)
-
-    sp = add("set-summary", "要約・キーワードを設定")
-    sp.add_argument("id")
-    sp.add_argument("--text", required=True, help="要約本文")
-    sp.add_argument("--keywords", help="カンマ区切りのキーワード")
-    sp.set_defaults(func=cmd_set_summary)
-
-    sp = add("set", "カテゴリ/要約/キーワードをまとめて更新")
-    sp.add_argument("id")
-    sp.add_argument("--category")
-    sp.add_argument("--summary")
-    sp.add_argument("--keywords", help="カンマ区切りのキーワード")
-    sp.add_argument("--force", action="store_true")
-    sp.set_defaults(func=cmd_set)
+    sp.add_argument("doctype")
+    sp.add_argument("--force", action="store_true", help="定義外でも許可")
+    sp.set_defaults(func=cmd_set_doctype)
 
     sp = add("get", "1 文書を表示")
     sp.add_argument("id")
     sp.set_defaults(func=cmd_get)
 
-    sp = add("text", "本文テキストのみを出力 (座標等を除いた要約用の軽量ビュー)")
+    sp = add("text", "本文テキストのみを出力 (座標等を除いた軽量ビュー)")
     sp.add_argument("id")
     sp.add_argument("--max-chars", type=int, help="出力する最大文字数 (省略時は全文)")
     sp.set_defaults(func=cmd_text)
@@ -531,13 +463,11 @@ def build_parser() -> argparse.ArgumentParser:
     add("list", "全文書を一覧").set_defaults(func=cmd_list)
 
     sp = add("query", "条件で絞り込み")
-    sp.add_argument("--category")
-    sp.add_argument("--status", choices=["registered", "analyzed"])
-    sp.add_argument("--keyword")
-    sp.add_argument("--text", help="要約・メタデータ・抜粋への部分一致")
+    sp.add_argument("--doctype")
+    sp.add_argument("--text", help="ソース名・文書種別・抜粋・メタデータへの部分一致")
     sp.set_defaults(func=cmd_query)
 
-    add("stats", "カテゴリ別・ステータス別の集計").set_defaults(func=cmd_stats)
+    add("stats", "文書種別別の集計").set_defaults(func=cmd_stats)
 
     sp = add("export", "集約 JSON 全体を出力")
     sp.add_argument("-o", "--output", help="書き出し先ファイル (省略時は標準出力)")
@@ -547,10 +477,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("id")
     sp.set_defaults(func=cmd_remove)
 
-    sp = add("categories", "タクソノミーの表示・追加・削除")
+    sp = add("doctypes", "文書種別の表示・追加・削除")
     sp.add_argument("action", nargs="?", default="list", choices=["list", "add", "remove"])
     sp.add_argument("name", nargs="?")
-    sp.set_defaults(func=cmd_categories)
+    sp.set_defaults(func=cmd_doctypes)
 
     # ── 現状把握 (doc-indexer) ──
     sp = add("sync", "抽出マニフェストの全文書を一括で索引に登録/更新")
@@ -613,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     # 既定パスは実行時に解決し、環境変数 DOCEXTRACT_HOME を docextract と一括で
     # 反映させる (import 時に固定しない)。
     args.store = getattr(args, "store", str(_paths.store_path()))
-    args.categories = getattr(args, "categories", str(_paths.categories_path()))
+    args.doctypes = getattr(args, "doctypes", str(_paths.doctypes_path()))
     args.facts = getattr(args, "facts", str(_paths.facts_path()))
     args.item_types_file = getattr(args, "item_types_file", str(_paths.item_types_path()))
     args.json = getattr(args, "json", False)

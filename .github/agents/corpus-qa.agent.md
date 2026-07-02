@@ -24,7 +24,7 @@ tools: ['runCommands', 'search']
 
 2. **裏取り** — 必要に応じて該当文書を深掘りする:
    ```
-   python .github/skills/docextract/scripts/run_docagent.py get <id> --json     # 文書メタ・要約
+   python .github/skills/docextract/scripts/run_docagent.py get <id> --json     # 文書メタ・文書種別
    python .github/skills/docextract/scripts/run_docagent.py text <id>           # 本文全文（座標なし）
    python .github/skills/docextract/scripts/run_docagent.py facts --doc <id>    # 抽出済みの仕様ファクト
    ```

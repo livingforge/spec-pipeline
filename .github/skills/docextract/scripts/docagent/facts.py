@@ -23,7 +23,7 @@ from typing import Any, Iterable
 
 from docextract import paths as _paths
 
-from .store import DocAgentError, _resolve_category
+from .store import DocAgentError, _resolve_term
 
 SCHEMA_VERSION = 1
 
@@ -135,7 +135,7 @@ class FactStore:
             results = [it for it in results if it.get("doc_id") == doc_id]
         if type:
             # 種別も表記揺れを吸収して絞り込む (未知なら DocAgentError)。
-            resolved = _resolve_category(type, self.item_types)
+            resolved = _resolve_term(type, self.item_types, label="種別")
             results = [it for it in results if it.get("type") == resolved]
         if text:
             t = text.lower()
@@ -182,7 +182,7 @@ class FactStore:
             raise DocAgentError("doc_id は必須です (どの文書から抽出したか)。")
         if not (statement or "").strip():
             raise DocAgentError("statement は必須です (抽出した事実の本文)。")
-        resolved = _resolve_category(type, self.item_types, force=force)
+        resolved = _resolve_term(type, self.item_types, force=force, label="種別")
         if confidence is not None and confidence not in CONFIDENCE_LEVELS:
             raise DocAgentError(
                 f"confidence は {', '.join(CONFIDENCE_LEVELS)} のいずれかです: {confidence}"

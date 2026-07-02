@@ -9,8 +9,8 @@ docextract の抽出結果 (``output/``) と docagent の集約ストア (``stor
       output/            <- docextract の抽出結果 (<id>/result.json)
         index.json       <- 抽出マニフェスト (id で索引する台帳)
       store/
-        library.json     <- docagent の集約 JSON (文書ごとの分類・要約)
-        categories.json  <- 利用者が編集できるタクソノミー
+        library.json     <- docagent の集約 JSON (文書ごとの文書種別)
+        doctypes.json    <- 文書種別の定義 (利用者が編集できる)
         facts.json       <- 抽出ファクト (仕様・要件項目、出典付き)
         item_types.json  <- ファクト種別の定義 (利用者が編集できる)
 
@@ -62,9 +62,9 @@ def store_path() -> Path:
     return store_dir() / "library.json"
 
 
-def categories_path() -> Path:
-    """タクソノミー定義ファイル (``<home>/store/categories.json``)。"""
-    return store_dir() / "categories.json"
+def doctypes_path() -> Path:
+    """文書種別の定義ファイル (``<home>/store/doctypes.json``)。"""
+    return store_dir() / "doctypes.json"
 
 
 def facts_path() -> Path:

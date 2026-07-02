@@ -158,18 +158,18 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(report["skipped"], ["gone_docx"])  # result.json が無い
         self.assertEqual(len(self._lib().documents), 2)
 
-    def test_sync_preserves_analysis_and_marks_updated(self):
+    def test_sync_preserves_doctype_and_marks_updated(self):
         r1 = self._write_result("a_docx", "a.docx", [{"type": "text", "content": "本文A", "location": {"order": 1}}])
         mp = self._manifest({"a_docx": {"result_path": str(r1).replace("\\", "/")}})
         lib = self._lib()
         lib.sync_from_manifest(mp)
-        lib.update("a_docx", category="報告・レポート", summary="要約。", keywords=["a"])
+        lib.set_doctype("a_docx", "議事録")
         lib.save()
-        # 2 回目の sync では分析結果を保持し、updated として数える
+        # 2 回目の sync では文書種別を保持し、updated として数える
         lib2 = self._lib()
         report = lib2.sync_from_manifest(mp)
         self.assertEqual(report["updated"], ["a_docx"])
-        self.assertEqual(lib2.get("a_docx")["category"], "報告・レポート")
+        self.assertEqual(lib2.get("a_docx")["doctype"], "議事録")
 
     def test_sync_missing_manifest_raises(self):
         with self.assertRaises(DocAgentError):
