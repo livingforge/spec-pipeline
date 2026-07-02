@@ -144,7 +144,7 @@ python scripts\build_skill.py        # --no-zip で zip 作成を省略
 | 出力先 | 内容 |
 |--------|------|
 | `.claude/skills/docextract/` `.github/skills/docextract/` | SKILL.md・docs/・scripts/ (本体パッケージ + テスト同梱、自己完結) |
-| `.claude/agents/` `.github/agents/` | doc-guide / doc-analyzer / doc-qa の各エージェント定義 |
+| `.claude/agents/*.md` `.github/agents/*.agent.md` | doc-guide / doc-analyzer / doc-qa の各エージェント定義 (GitHub は `*.agent.md` 拡張子) |
 | `.claude/package-meta/docextract/` `.github/package-meta/docextract/` | LICENSE (MIT)・CHANGELOG.md・dependencies.md (依存ライセンス一覧) |
 | `dist/docextract-skill.zip` | 上記をまとめた配布物 (展開先リポジトリのルートに解凍するだけで導入完了) |
 
