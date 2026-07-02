@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from docagent import Library, DocAgentError, doc_id_from_source
 from docagent.store import BUILTIN_CATEGORIES
@@ -207,6 +210,57 @@ class DocAgentTest(unittest.TestCase):
         rp.unlink()
         with self.assertRaises(DocAgentError):
             lib.extract_text("gone_docx")
+
+    # ── prep (分析準備の複合操作) ──
+    def test_prep_registers_from_path(self):
+        rp = self._write_result("report.docx", texts=["月次売上の報告です。"])
+        lib = self._lib()
+        out = lib.prep(str(rp))
+        self.assertEqual(out["id"], "report_docx")
+        self.assertEqual(out["status"], "registered")
+        self.assertFalse(out["already_analyzed"])
+        self.assertEqual(out["categories"], BUILTIN_CATEGORIES)
+        self.assertIn("月次売上", out["text"])
+        self.assertIn("docagent set report_docx", out["next_action"])
+        self.assertTrue(self.store.exists())  # 登録時はストアも保存される
+
+    def test_prep_by_id_preserves_analysis_and_skips(self):
+        rp = self._write_result("report.docx", texts=["x"])
+        lib = self._lib()
+        lib.add_from_result(rp)
+        lib.update("report_docx", category="報告・レポート", summary="要約。", keywords=["a"])
+        lib.save()
+
+        out = self._lib().prep("report_docx")
+        self.assertTrue(out["already_analyzed"])
+        self.assertEqual(out["category"], "報告・レポート")
+        self.assertNotIn("text", out)  # 解析済みは本文抜粋を返さない
+        self.assertIn("スキップ", out["next_action"])
+
+        # パスで再 prep しても分析結果は保持される
+        out2 = self._lib().prep(str(rp))
+        self.assertTrue(out2["already_analyzed"])
+        self.assertEqual(out2["category"], "報告・レポート")
+
+    def test_prep_max_chars(self):
+        rp = self._write_result("big.docx", texts=["あ" * 2000])
+        out = self._lib().prep(str(rp), max_chars=100)
+        self.assertTrue(out["text_truncated"])
+        self.assertEqual(len(out["text"]), 100)
+
+    def test_prep_unknown_target_raises(self):
+        with self.assertRaises(DocAgentError):
+            self._lib().prep("nope")
+
+    def test_prep_missing_result_falls_back_to_preview(self):
+        rp = self._write_result("gone.docx", texts=["中身のテキスト"])
+        lib = self._lib()
+        lib.add_from_result(rp)
+        lib.save()
+        rp.unlink()
+        out = self._lib().prep("gone_docx")
+        self.assertIsNone(out["text"])
+        self.assertIn("中身のテキスト", out["preview"])
 
     # ── 集約 export ──
     def test_export_shape(self):
