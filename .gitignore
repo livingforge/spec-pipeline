@@ -5,6 +5,7 @@
 # 公開したいものだけ明示的に許可する
 !/.claude/
 !/.github/
+!/docagent/
 !/README.md
 !/.gitignore
 
