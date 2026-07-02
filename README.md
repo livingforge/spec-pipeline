@@ -86,6 +86,33 @@ print(data["summary"])   # 例: {'text': 12, 'table': 3, 'image': 2}
 - **pptx**: `slide` (スライド番号)、`shape_name`
 - **pdf**: `page` (ページ番号)、`bbox` (座標 `[x0, y0, x1, y1]`)
 
+## 資料整理エージェント（doc-guide / doc-analyzer / doc-qa + docagent）
+
+抽出だけでなく、文書を **カテゴライズ → 要約 → 集約 JSON** にまとめる
+カスタムエージェント一式を同梱している:
+
+```
+利用者 ──▶ doc-guide（窓口・伴走）
+              │  ①説明 ②場所確認 ③抽出 ④分類+要約 ⑤集約 ⑥確認
+              ├─ docextract（スキル）… 文書 → result.json（テキスト/表/画像）
+              ├─ doc-analyzer（解析）… 1文書を分類+要約して保存
+              └─ docagent（データ操作API）… 集約 JSON（store/library.json）
+
+不明点は ──▶ doc-qa（質問回答ヘルプ）
+```
+
+| エージェント | 役割 | 使いどころ |
+|------------|------|-----------|
+| **doc-guide** | 最初の窓口。使い方を平易に説明し、アップロード〜結果確認まで伴走・オーケストレーション | 「資料を整理して」「使い方が分からない」 |
+| **doc-analyzer** | 中核。1文書を固定カテゴリで分類し日本語要約、`docagent` で保存 | 個別/バッチ解析、並列処理 |
+| **doc-qa** | 質問回答。使い方・カテゴリの意味・現在の状態・トラブルに回答 | 「これは何？」「結果はどこ？」 |
+
+Claude Code 上で `@doc-guide` に「この資料を整理して」と頼めば、抽出から一覧提示
+まで案内してくれる。データ操作 API `docagent` はスキルに同梱されており
+（`.claude/skills/docextract/scripts/docagent/`）、CLI の詳細・集約 JSON の構造・
+カテゴリ（固定タクソノミー）の変更方法は同梱の
+[README](.claude/skills/docextract/scripts/docagent/README.md) を参照。
+
 ## スキルとしての配布
 
 このツールは Claude Code / GitHub Copilot のエージェントスキルとして配布できる。
@@ -117,6 +144,12 @@ skill-src/docextract/  または  agent-src/<エージェント名>/
 
 共通部分は common / body を1箇所直せば両方に反映され、プラットフォーム固有の
 フィールド (Claude の `license` や model 指定の表記差など) は各フラグメントに置く。
+
+body.md と docs/ 内の `{{skill_dir}}` はビルド時にプラットフォーム別のスキルパス
+(`.claude/skills/docextract` / `.github/skills/docextract`) へ展開される。
+エージェントが実行するコマンドは、cwd に依存する `python -m docextract` ではなく、
+どこから実行しても動く起動スクリプト
+`python {{skill_dir}}/scripts/run_docextract.py` / `run_docagent.py` を使って書く。
 
 ## テスト
 
