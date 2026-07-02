@@ -15,7 +15,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from docagent import Library, DocAgentError, doc_id_from_source
-from docagent.store import BUILTIN_CATEGORIES
+from docagent.store import PACKAGED_CATEGORIES, default_categories
+
+DEFAULT_CATS = default_categories()
 
 
 def make_result(source: str, texts, tables=None, ocr=None) -> dict:
@@ -84,10 +86,10 @@ class DocAgentTest(unittest.TestCase):
         with self.assertRaises(DocAgentError):
             lib.add_from_result(rp)
         # overwrite は既存の分析結果を保持する
-        lib.set_category("report_docx", BUILTIN_CATEGORIES[0])
+        lib.set_category("report_docx", DEFAULT_CATS[0])
         lib.set_summary("report_docx", "要約", ["a"])
         entry = lib.add_from_result(rp, overwrite=True)
-        self.assertEqual(entry["category"], BUILTIN_CATEGORIES[0])
+        self.assertEqual(entry["category"], DEFAULT_CATS[0])
         self.assertEqual(entry["summary"], "要約")
         self.assertEqual(entry["status"], "analyzed")
 
@@ -161,11 +163,17 @@ class DocAgentTest(unittest.TestCase):
         lib.add_from_result(self._write_result("a.docx", texts=["x"]))
         lib.set_category("a_docx", "X")  # ファイル定義のカテゴリは通る
         with self.assertRaises(DocAgentError):
-            lib.set_category("a_docx", "報告・レポート")  # 組み込みでもファイルに無ければ拒否
+            lib.set_category("a_docx", "報告・レポート")  # 既定でもファイルに無ければ拒否
 
     def test_default_categories_when_no_file(self):
         lib = self._lib()
-        self.assertEqual(lib.categories, BUILTIN_CATEGORIES)
+        self.assertEqual(lib.categories, DEFAULT_CATS)
+
+    def test_default_categories_come_from_packaged_json(self):
+        # 既定タクソノミーはコードではなくパッケージ同梱の categories.json が定義元
+        data = json.loads(PACKAGED_CATEGORIES.read_text(encoding="utf-8-sig"))
+        self.assertEqual(DEFAULT_CATS, data["categories"])
+        self.assertIn("その他", DEFAULT_CATS)
 
     # ── preview は上限で切られる ──
     def test_preview_truncated(self):
@@ -219,7 +227,7 @@ class DocAgentTest(unittest.TestCase):
         self.assertEqual(out["id"], "report_docx")
         self.assertEqual(out["status"], "registered")
         self.assertFalse(out["already_analyzed"])
-        self.assertEqual(out["categories"], BUILTIN_CATEGORIES)
+        self.assertEqual(out["categories"], DEFAULT_CATS)
         self.assertIn("月次売上", out["text"])
         self.assertIn("docagent set report_docx", out["next_action"])
         self.assertTrue(self.store.exists())  # 登録時はストアも保存される

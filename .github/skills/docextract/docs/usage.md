@@ -12,7 +12,7 @@
 ## CLI リファレンス
 
 ```
-python <skill-dir>/scripts/run_docextract.py <入力...> [オプション]
+python .github/skills/docextract/scripts/run_docextract.py <入力...> [オプション]
 
   <入力...>          入力ファイル。複数指定・ワイルドカード可
   -o, --output-dir   出力先ディレクトリ (既定: output)
@@ -56,7 +56,7 @@ python <skill-dir>/scripts/run_docextract.py <入力...> [オプション]
 導入直後や依存更新後の動作確認に使う:
 
 ```bash
-python -m unittest discover -s <skill-dir>/scripts/tests -v
+python -m unittest discover -s .github/skills/docextract/scripts/tests -v
 ```
 
 数秒で完了する。フィクスチャ (docx/xlsx/pptx/pdf) はテスト実行時に生成される

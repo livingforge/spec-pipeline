@@ -24,17 +24,9 @@ SCHEMA_VERSION = 1
 DEFAULT_STORE = Path("store") / "library.json"
 DEFAULT_CATEGORIES = Path("store") / "categories.json"
 
-# categories.json が無い場合に使う組み込みの固定タクソノミー。
-BUILTIN_CATEGORIES = [
-    "契約・法務",
-    "設計・仕様",
-    "議事録",
-    "報告・レポート",
-    "見積・費用",
-    "計画・提案",
-    "マニュアル・手順",
-    "その他",
-]
+# 既定タクソノミーの定義ファイル (パッケージ同梱)。コードにはハードコードしない。
+# 実行時は store/categories.json (利用者が各自編集できる) が存在すればそちらが優先。
+PACKAGED_CATEGORIES = Path(__file__).resolve().parent / "categories.json"
 
 # 分析未完了を表す既定カテゴリ (タクソノミー外の一時値)。
 UNCLASSIFIED = "未分類"
@@ -62,6 +54,17 @@ class DocAgentError(Exception):
     """docagent 由来のユーザー向けエラー。"""
 
 
+def default_categories() -> list[str]:
+    """パッケージ同梱の categories.json から既定タクソノミーを読む。"""
+    cats = _read_categories_file(PACKAGED_CATEGORIES)
+    if cats is None:
+        raise DocAgentError(
+            f"既定カテゴリ定義が読めません: {PACKAGED_CATEGORIES}。"
+            " docagent パッケージに categories.json が同梱されているか確認してください"
+        )
+    return cats
+
+
 @dataclass
 class Library:
     """集約 JSON ストア本体。
@@ -73,7 +76,7 @@ class Library:
     path: Path
     categories_path: Path | None = None
     version: int = SCHEMA_VERSION
-    categories: list[str] = field(default_factory=lambda: list(BUILTIN_CATEGORIES))
+    categories: list[str] = field(default_factory=default_categories)
     documents: list[dict[str, Any]] = field(default_factory=list)
 
     # ── 入出力 ────────────────────────────────────────────────
@@ -395,12 +398,20 @@ def _unknown_category_message(category: str, categories: list[str]) -> str:
 
 
 def _load_categories(cats_path: Path) -> list[str]:
-    if cats_path.exists():
-        data = json.loads(cats_path.read_text(encoding="utf-8-sig"))
-        cats = data.get("categories") if isinstance(data, dict) else data
-        if cats:
-            return list(cats)
-    return list(BUILTIN_CATEGORIES)
+    cats = _read_categories_file(cats_path)
+    return cats if cats is not None else default_categories()
+
+
+def _read_categories_file(path: Path) -> list[str] | None:
+    """categories.json を読んでカテゴリ一覧を返す。無効・不存在なら None。"""
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    cats = data.get("categories") if isinstance(data, dict) else data
+    return list(cats) if cats else None
 
 
 def _searchable_text(doc: dict[str, Any]) -> str:

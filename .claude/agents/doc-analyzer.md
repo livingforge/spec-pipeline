@@ -13,21 +13,24 @@ model: haiku
 1. **準備** — 入力（result.json のパス、または登録済み文書 ID）をそのまま渡す:
 
    ```
-   python -m docagent prep <result.jsonパス または ID> --json
+   python .claude/skills/docextract/scripts/run_docagent.py prep <result.jsonパス または ID> --json
    ```
+
+   コマンドは**常にプロジェクトルートで実行**する（`cd` しない。パスはルートからの
+   相対パス）。result.json のパスも受け取ったまま加工せず渡す。
 
    登録・解析済み判定・カテゴリ一覧（`categories`）・本文抜粋（`text`）が
    まとめて返る。
    - `already_analyzed: true` なら**保存せず**、「解析済みのためスキップ」と
      報告して終える（再解析を明示的に指示された場合のみ処理する）。
    - `text_truncated: true` でも通常は抜粋で判断できる。足りないときだけ
-     `python -m docagent text <id>` で続きを取得する。result.json 全体を
-     `Read` で開かない（トークンの無駄）。
+     `python .claude/skills/docextract/scripts/run_docagent.py text <id>` で続きを取得する。
+     result.json 全体を `Read` で開かない（トークンの無駄）。
 
 2. **判断して保存** — 下の基準でカテゴリ・要約・キーワードを決めて保存する:
 
    ```
-   python -m docagent set <id> --category "<カテゴリ>" --summary "<要約>" --keywords "<語1,語2,...>"
+   python .claude/skills/docextract/scripts/run_docagent.py set <id> --category "<カテゴリ>" --summary "<要約>" --keywords "<語1,語2,...>"
    ```
 
    カテゴリが一覧外だと拒否される。拒否されたら `categories` から選び直して

@@ -14,27 +14,29 @@ tools: Bash, Read, Glob, Grep
 - **使い方**: 「フォルダに資料を置く → 読み取り → 分類と要約 → 一覧で確認」の
   流れを、相手の状況に合わせてやさしく説明する。最初から通しでやりたい人には
   「窓口の @doc-guide にお願いすると最後まで案内してくれます」と橋渡しする。
-- **カテゴリの意味**: 現在の固定カテゴリを見せて説明する。
+- **カテゴリの意味**: 現在の固定カテゴリを見せて説明する
+  （docagent のコマンドは**常にプロジェクトルートで実行**する。`cd` しない）。
   ```
-  python -m docagent categories
+  python .claude/skills/docextract/scripts/run_docagent.py categories
   ```
 - **今の状態**: 何が登録され、どう分類されたかを答える。
   ```
-  python -m docagent stats          # 件数・カテゴリ内訳
-  python -m docagent list           # 一覧
-  python -m docagent query --category "<カテゴリ>"   # 絞り込み
-  python -m docagent get <id>       # 1件の詳細（要約・キーワード）
+  python .claude/skills/docextract/scripts/run_docagent.py stats          # 件数・カテゴリ内訳
+  python .claude/skills/docextract/scripts/run_docagent.py list           # 一覧
+  python .claude/skills/docextract/scripts/run_docagent.py query --category "<カテゴリ>"   # 絞り込み
+  python .claude/skills/docextract/scripts/run_docagent.py get <id>       # 1件の詳細（要約・キーワード）
   ```
 - **結果の場所**: 抽出結果は `output/<名前>_<拡張子>/result.json`、まとめた一覧は
   集約 JSON（既定 `store/library.json`）。1ファイルで欲しい人には
-  `python -m docagent export -o library.json` を案内する。
+  `python .claude/skills/docextract/scripts/run_docagent.py export -o library.json` を案内する。
 - **困りごと**（例と答え方）:
   - 「対応してない形式と言われた」→ 旧形式 `.doc/.xls/.ppt` は非対応。新形式
     （`.docx` など）に変換してもらう。
   - 「画像の文字が変」→ OCR は完璧ではなく、読みにくい画像ではノイズが混じる旨を
     正直に伝える。
-  - 「分類を変えたい／要約を直したい」→ `python -m docagent set <id> --category ...
-    --summary ...` で上書きできると案内（実操作が必要なら @doc-guide へ）。
+  - 「分類を変えたい／要約を直したい」→ `python .claude/skills/docextract/scripts/run_docagent.py
+    set <id> --category ... --summary ...` で上書きできると案内
+    （実操作が必要なら @doc-guide へ）。
 
 ## 原則
 - まず相手が今どこで詰まっているかを一言確認してから答える。

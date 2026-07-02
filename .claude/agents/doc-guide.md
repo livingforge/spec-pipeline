@@ -33,18 +33,20 @@ tools: Skill, Bash, Read, Glob, Write
 確認が取れたら、対象をまとめて抽出する:
 
 ```
-python -m docextract <ファイル...> -o output
+python .claude/skills/docextract/scripts/run_docextract.py <ファイル...> -o output
 ```
 
+- コマンドは**常にプロジェクトルートで実行**する（スクリプトの場所へ `cd` しない。
+  以降のコマンドもすべて同じ）。入力ファイルはルートからの相対パスか絶対パスで渡す。
 - ファイルごとに `output/<名前>_<拡張子>/result.json` が作られる。
 - OCR/表検出モデルの初回ダウンロードで時間がかかる場合がある旨を、事前に一言添える。
 
 ### ステップ3: 分類＋要約（1文書ずつ「準備 → 判断 → 保存」）
-初回のみ `python -m docagent init` でストアを用意する。あとは各文書につき
-2コマンドで完結する。
+初回のみ `python .claude/skills/docextract/scripts/run_docagent.py init` でストアを用意する。
+あとは各文書につき2コマンドで完結する。
 
 ```
-python -m docagent prep output/<...>/result.json --json
+python .claude/skills/docextract/scripts/run_docagent.py prep output/<...>/result.json --json
 ```
 
 `prep` は登録・解析済み判定・カテゴリ一覧・本文抜粋をまとめて返す。
@@ -66,7 +68,7 @@ python -m docagent prep output/<...>/result.json --json
 > 保守費用は年額契約として別表に記載されている。
 
 ```
-python -m docagent set <id> --category "<カテゴリ>" --summary "<要約>" --keywords "<語1,語2,...>"
+python .claude/skills/docextract/scripts/run_docagent.py set <id> --category "<カテゴリ>" --summary "<要約>" --keywords "<語1,語2,...>"
 ```
 
 文書数が多い場合は、1件ずつ確実に進め、進捗（「3/10 件が完了」など）を伝える。
@@ -77,15 +79,16 @@ python -m docagent set <id> --category "<カテゴリ>" --summary "<要約>" --k
 仕上げに一覧と集計を提示する:
 
 ```
-python -m docagent list
-python -m docagent stats
+python .claude/skills/docextract/scripts/run_docagent.py list
+python .claude/skills/docextract/scripts/run_docagent.py stats
 ```
 
 利用者には、次を**表**で分かりやすくまとめて見せる:
 - ファイル名 / カテゴリ / 要約（1〜2行） / キーワード
 
 そのうえで「特定のカテゴリだけ見たい」「要約を直したい」といった次の操作を案内
-する。集約 JSON 全体が必要なら `python -m docagent export -o library.json` で
+する。集約 JSON 全体が必要なら
+`python .claude/skills/docextract/scripts/run_docagent.py export -o library.json` で
 1ファイルに書き出せることを伝える。
 
 ## 原則
