@@ -73,6 +73,126 @@ def make_docx(tmp_path: Path):
 # --------------------------------------------------------------------------
 # xlsx ビルダー
 # --------------------------------------------------------------------------
+def _inject_shapes(
+    path: Path, shapes: dict[str, list[dict]], order: list[str]
+) -> None:
+    """保存済み xlsx にオートシェイプ/コネクタの drawing を直接注入する。
+
+    openpyxl は autoshape を書き出せないため、zip を展開して
+    xl/drawings/drawingK.xml と関連リレーションを手で組み立てる。
+    各シェイプ dict: {"name","text","cell":(col,row)} = テキスト図形、
+    {"connector": True} = コネクタ (テキスト無し、抽出対象外の確認用)。
+    """
+    import os
+    import shutil
+    import zipfile
+
+    XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+    AMAIN = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    RNS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+    def _sp(idx: int, s: dict) -> str:
+        col, row = s.get("cell", (0, 0))
+        to_col, to_row = s.get("to_cell", (col + 2, row + 2))
+        anchor_from = (
+            f"<xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>0</xdr:colOff>"
+            f"<xdr:row>{row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>"
+            f"<xdr:to><xdr:col>{to_col}</xdr:col><xdr:colOff>0</xdr:colOff>"
+            f"<xdr:row>{to_row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>"
+        )
+        if s.get("connector"):
+            # st/end に接続先シェイプ id を渡すと明示接続 (<a:stCxn>/<a:endCxn>) になる
+            cxn = ""
+            if s.get("st") is not None:
+                cxn += f'<a:stCxn id="{s["st"]}" idx="0"/>'
+            if s.get("end") is not None:
+                cxn += f'<a:endCxn id="{s["end"]}" idx="0"/>'
+            body = (
+                f'<xdr:cxnSp macro=""><xdr:nvCxnSpPr>'
+                f'<xdr:cNvPr id="{idx}" name="{s.get("name","Conn")}"/>'
+                f"<xdr:cNvCxnSpPr>{cxn}</xdr:cNvCxnSpPr></xdr:nvCxnSpPr>"
+                f'<xdr:spPr><a:prstGeom prst="straightConnector1"><a:avLst/>'
+                f"</a:prstGeom></xdr:spPr></xdr:cxnSp>"
+            )
+        else:
+            paras = "".join(
+                f"<a:p><a:r><a:t>{line}</a:t></a:r></a:p>"
+                for line in str(s["text"]).split("\n")
+            )
+            body = (
+                f'<xdr:sp macro="" textlink=""><xdr:nvSpPr>'
+                f'<xdr:cNvPr id="{idx}" name="{s.get("name","Shape")}"/>'
+                f"<xdr:cNvSpPr/></xdr:nvSpPr>"
+                f'<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>'
+                f"<xdr:txBody><a:bodyPr/>{paras}</xdr:txBody></xdr:sp>"
+            )
+        return f"<xdr:twoCellAnchor>{anchor_from}{body}<xdr:clientData/></xdr:twoCellAnchor>"
+
+    tmpd = path.parent / (path.stem + "_unzip")
+    if tmpd.exists():
+        shutil.rmtree(tmpd)
+    with zipfile.ZipFile(path) as z:
+        z.extractall(tmpd)
+
+    ct_path = tmpd / "[Content_Types].xml"
+    ct = ct_path.read_text(encoding="utf-8")
+    sheet_index = {title: i + 1 for i, title in enumerate(order)}
+    k = 0
+    for sheet_name, sps in shapes.items():
+        k += 1
+        n = sheet_index[sheet_name]
+        drawing = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<xdr:wsDr xmlns:xdr="{XDR}" xmlns:a="{AMAIN}">'
+            + "".join(_sp(i + 2, s) for i, s in enumerate(sps))
+            + "</xdr:wsDr>"
+        )
+        (tmpd / "xl" / "drawings").mkdir(parents=True, exist_ok=True)
+        (tmpd / "xl" / "drawings" / f"drawing{k}.xml").write_text(drawing, encoding="utf-8")
+
+        sheet_path = tmpd / "xl" / "worksheets" / f"sheet{n}.xml"
+        s = sheet_path.read_text(encoding="utf-8")
+        if "xmlns:r=" not in s:
+            s = s.replace("<worksheet ", f'<worksheet xmlns:r="{RNS}" ', 1)
+        s = s.replace("</worksheet>", '<drawing r:id="rIdDraw"/></worksheet>')
+        sheet_path.write_text(s, encoding="utf-8")
+
+        rels_dir = tmpd / "xl" / "worksheets" / "_rels"
+        rels_dir.mkdir(parents=True, exist_ok=True)
+        rels_path = rels_dir / f"sheet{n}.xml.rels"
+        rel = (
+            f'<Relationship Id="rIdDraw" Type="{RNS}/drawing" '
+            f'Target="../drawings/drawing{k}.xml"/>'
+        )
+        if rels_path.exists():
+            r = rels_path.read_text(encoding="utf-8").replace(
+                "</Relationships>", rel + "</Relationships>"
+            )
+        else:
+            r = (
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/'
+                f'package/2006/relationships">{rel}</Relationships>'
+            )
+        rels_path.write_text(r, encoding="utf-8")
+
+        override = (
+            f'<Override PartName="/xl/drawings/drawing{k}.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
+        )
+        if f"/xl/drawings/drawing{k}.xml" not in ct:
+            ct = ct.replace("</Types>", override + "</Types>")
+    ct_path.write_text(ct, encoding="utf-8")
+
+    path.unlink()
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for root, _, files in os.walk(tmpd):
+            for f in files:
+                fp = Path(root) / f
+                z.write(fp, fp.relative_to(tmpd).as_posix())
+    shutil.rmtree(tmpd)
+
+
 @pytest.fixture
 def make_xlsx(tmp_path: Path):
     from openpyxl import Workbook
@@ -84,6 +204,9 @@ def make_xlsx(tmp_path: Path):
         sheets: dict[str, list[list]] | None = None,
         merges: dict[str, list[str]] | None = None,  # sheet -> ["B1:B3", ...]
         image: tuple[str, Path, str] | None = None,  # (sheet, png_path, anchor)
+        # sheet -> [{"name","text","cell":(col,row)} | {"connector":True}, ...]
+        # openpyxl は autoshape を書けないため drawing XML を直接注入する。
+        shapes: dict[str, list[dict]] | None = None,
         title: str | None = None,
         author: str | None = None,
     ) -> Path:
@@ -117,6 +240,9 @@ def make_xlsx(tmp_path: Path):
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         wb.save(str(path))
+        if shapes:
+            order = wb.sheetnames  # sheetN.xml は作成順 = この順
+            _inject_shapes(path, shapes, order)
         return path
 
     return _make

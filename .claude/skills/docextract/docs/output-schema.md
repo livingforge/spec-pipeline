@@ -88,7 +88,7 @@
 | 形式 | フィールド |
 |------|-----------|
 | docx | `order` (文書内の出現順、1 始まり) |
-| xlsx | `sheet` (シート名)、画像は `anchor` (A1 形式) |
+| xlsx | `sheet` (シート名)、画像は `anchor` (A1 形式)、図形テキストは `style:"shape"` + `cell` (A1 形式) + `shape_name` + `shape_id`、図形の接続関係は `kind:"diagram_topology"` の 2 列テーブル (`接続元`/`接続先`) |
 | pptx | `slide` (1 始まり)、`shape_name` |
 | pdf  | `page` (1 始まり)、`bbox` `[x0, y0, x1, y1]` (pt、原点は左上) |
 | 画像内の表 | 元画像の location + `from_image`、`bbox_in_image` (px) |

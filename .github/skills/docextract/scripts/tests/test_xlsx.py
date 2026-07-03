@@ -239,3 +239,173 @@ def test_metadata_includes_sheet_names(tmp_path, make_xlsx):
     src = make_xlsx(sheets={"First": [["a"]], "Second": [["b"]]})
     data = _extract(src, tmp_path / "out")
     assert data["metadata"]["sheets"] == ["First", "Second"]
+
+
+def _shapes(data):
+    return [
+        e
+        for e in data["elements"]
+        if e["type"] == "text" and e.get("style") == "shape"
+    ]
+
+
+def test_autoshape_text_extracted_as_shape_text(tmp_path, make_xlsx):
+    # 図形 (ネットワーク構成図のノード) 内テキストが救出される
+    src = make_xlsx(
+        sheets={"構成図": [["システム構成図"]]},
+        shapes={
+            "構成図": [
+                {"name": "Node-Web", "text": "Webサーバ\n192.168.1.10", "cell": (1, 4)},
+                {"name": "Node-DB", "text": "DBサーバ\n192.168.3.30", "cell": (9, 4)},
+            ]
+        },
+    )
+    data = _extract(src, tmp_path / "out")
+    shapes = _shapes(data)
+    contents = {s["content"] for s in shapes}
+    assert contents == {
+        "Webサーバ\n192.168.1.10",
+        "DBサーバ\n192.168.3.30",
+    }
+    web = next(s for s in shapes if s["content"].startswith("Web"))
+    assert web["location"]["sheet"] == "構成図"
+    assert web["location"]["shape_name"] == "Node-Web"
+    assert web["location"]["cell"] == "B5"  # col=1,row=4 -> 0始まり -> B5
+
+
+def test_connector_shape_excluded(tmp_path, make_xlsx):
+    # コネクタ (テキストなしの接続線) は抽出対象外
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={
+            "S": [
+                {"name": "N1", "text": "ノード1", "cell": (0, 3)},
+                {"connector": True, "name": "C1"},
+                {"name": "N2", "text": "ノード2", "cell": (5, 3)},
+            ]
+        },
+    )
+    data = _extract(src, tmp_path / "out")
+    contents = {s["content"] for s in _shapes(data)}
+    assert contents == {"ノード1", "ノード2"}
+
+
+def test_empty_text_shape_ignored(tmp_path, make_xlsx):
+    # 空白のみのテキスト図形は要素化しない
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={"S": [{"name": "blank", "text": "   ", "cell": (0, 2)}]},
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _shapes(data) == []
+
+
+def test_shapes_scoped_per_sheet(tmp_path, make_xlsx):
+    # 図形が正しいシートに割り当てられる
+    src = make_xlsx(
+        sheets={"A": [["a"]], "B": [["b"]]},
+        shapes={
+            "A": [{"name": "sa", "text": "図A", "cell": (0, 3)}],
+            "B": [{"name": "sb", "text": "図B", "cell": (0, 3)}],
+        },
+    )
+    data = _extract(src, tmp_path / "out")
+    by_sheet = {s["location"]["sheet"]: s["content"] for s in _shapes(data)}
+    assert by_sheet == {"A": "図A", "B": "図B"}
+
+
+def test_workbook_without_drawings_has_no_shape_text(tmp_path, make_xlsx):
+    # 図形のないブックは従来どおり shape テキストを出さない (回帰防止)
+    src = make_xlsx(sheets={"S": [["a", "b"], ["c", "d"]]})
+    data = _extract(src, tmp_path / "out")
+    assert _shapes(data) == []
+    assert data.get("degraded") is None
+
+
+def _topology(data):
+    tabs = [
+        e
+        for e in data["elements"]
+        if e["type"] == "table"
+        and (e.get("location") or {}).get("kind") == "diagram_topology"
+    ]
+    if not tabs:
+        return None
+    rows = tabs[0]["rows"]
+    assert rows[0] == ["接続元", "接続先"]  # ヘッダ
+    return [tuple(r) for r in rows[1:]]
+
+
+def test_connector_topology_reconstructed_geometrically(tmp_path, make_xlsx):
+    # コネクタ端点をノードに幾何スナップして接続関係を復元する
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={
+            "S": [
+                # A: col0-2, B: col5-7 (いずれも row4-6)
+                {"name": "A", "text": "ノードA", "cell": (0, 4)},
+                {"name": "B", "text": "ノードB", "cell": (5, 4)},
+                # コネクタ: A の右端(2,5) → B の左端(5,5)
+                {"connector": True, "cell": (2, 5), "to_cell": (5, 5)},
+            ]
+        },
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _topology(data) == [("ノードA", "ノードB")]
+
+
+def test_connector_topology_uses_explicit_connection(tmp_path, make_xlsx):
+    # <a:stCxn>/<a:endCxn> の接続先 id があれば幾何より優先して使う。
+    # コネクタは幾何的には両ノードから離れた位置に置くが、id で正しく解決される。
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={
+            # 図形 id は 2,3,4,... の順 (この並びで id=2:A, id=3:B)
+            "S": [
+                {"name": "A", "text": "始点", "cell": (0, 0)},
+                {"name": "B", "text": "終点", "cell": (20, 20)},
+                # 遠く離れた位置のコネクタでも id で A->B に解決される
+                {"connector": True, "cell": (40, 40), "to_cell": (41, 41),
+                 "st": 2, "end": 3},
+            ]
+        },
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _topology(data) == [("始点", "終点")]
+
+
+def test_far_connector_not_snapped(tmp_path, make_xlsx):
+    # どのノードからも離れたコネクタ (明示接続なし) は誤接続せず棄却
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={
+            "S": [
+                {"name": "A", "text": "ノードA", "cell": (0, 0)},
+                {"connector": True, "cell": (50, 50), "to_cell": (52, 50)},
+            ]
+        },
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _topology(data) is None
+
+
+def test_no_topology_table_without_connectors(tmp_path, make_xlsx):
+    # ノードだけでコネクタが無ければトポロジ表は出さない
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={"S": [{"name": "A", "text": "孤立ノード", "cell": (0, 4)}]},
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _topology(data) is None
+    assert {s["content"] for s in _shapes(data)} == {"孤立ノード"}
+
+
+def test_node_carries_shape_id(tmp_path, make_xlsx):
+    # ノードのテキスト要素に shape_id が付き、トポロジと突き合わせられる
+    src = make_xlsx(
+        sheets={"S": [["図"]]},
+        shapes={"S": [{"name": "A", "text": "ノードA", "cell": (0, 4)}]},
+    )
+    data = _extract(src, tmp_path / "out")
+    node = _shapes(data)[0]
+    assert node["location"]["shape_id"] == "2"
