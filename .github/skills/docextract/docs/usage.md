@@ -31,6 +31,12 @@ Office を用意できない場合は、あらかじめ `.docx` / `.xlsx` / `.pp
 渡すこと。Office / pywin32 は再現性固定された `requirements.lock` には含まれない
 外部前提であり、別途各環境で用意する ([dependencies.md](../../package-meta/docextract/dependencies.md) 参照)。
 
+> **pywin32 は bootstrap でも自動導入されない。** `requirements.lock` に含めない
+> 方針のため、旧形式・IRM/RMS 保護文書を扱う前に手動で追加する:
+> `uv pip install --python .venv/Scripts/python.exe pywin32` (または
+> `pip install pywin32`)。未導入のまま COM 経路に入ると「Office が必要」の
+> エラーになるが、そのメッセージにも同じ導入コマンドを併記している。
+
 ## 秘密度ラベル・保護文書の扱い (Microsoft Purview / AIP / IRM)
 
 秘密度ラベルは 2 種類あり、docextract は挙動を分ける（**操作者が対象文書への

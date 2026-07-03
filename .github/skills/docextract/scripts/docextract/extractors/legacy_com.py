@@ -47,12 +47,43 @@ class OfficeUnavailableError(RuntimeError):
 def _office_required_error(
     ext: str, app: str, action: str, cause: object | None = None
 ) -> OfficeUnavailableError:
+    """Office / pywin32 そのものが利用できないときのエラー。
+
+    pywin32 は再現性固定の ``requirements.lock`` に含めない方針のため bootstrap
+    では入らない。手当ての具体コマンドまで案内し、失敗ログを読んで手動で調べ
+    直す手間を省く。COM が動いた後の変換失敗はこの経路ではなく
+    ``_com_conversion_error`` を使う (Office/pywin32 は検出済みだと切り分ける)。
+    """
     msg = (
         f"{action}には Microsoft Office ({app}) の COM 自動化が必要です。"
         f"Windows 上でインストール済みの Microsoft {app} を COM で操作します。"
-        f"Windows で Microsoft {app} と pywin32 (pip install pywin32) が利用可能か"
-        f"確認してください。利用できない環境では、あらかじめ復号・新形式変換した "
-        f".docx/.xlsx/.pptx を渡してください。"
+        f"Windows で Microsoft {app} が導入済みで、pywin32 が利用可能か確認して"
+        f"ください。pywin32 は自動導入されないため、未導入なら "
+        f"`uv pip install --python .venv/Scripts/python.exe pywin32` (または "
+        f"`pip install pywin32`) で追加してから再実行してください。利用できない"
+        f"環境では、あらかじめ復号・新形式変換した .docx/.xlsx/.pptx を渡してください。"
+    )
+    if cause is not None:
+        msg += f" (原因: {cause})"
+    return OfficeUnavailableError(msg)
+
+
+def _com_conversion_error(
+    ext: str, app: str, action: str, cause: object | None = None
+) -> OfficeUnavailableError:
+    """Office/pywin32 は検出済みだが COM 変換自体が失敗したときのエラー。
+
+    ``_require_win32com`` を通過した後に投げるので、pywin32 の import は成功して
+    いる。ここで ``_office_required_error`` の万能文言を使うと、パス不正・IRM 権限
+    拒否・自動化不許可・出力形式不整合などが一律に「Office/pywin32 が無い」に化け、
+    利用者を Excel 未導入の誤診へ誘導する (フィードバック不具合 2 の二次被害)。
+    そこで「検出済み」を先に切り出して報告する。
+    """
+    msg = (
+        f"{action}中に Microsoft Office ({app}) の COM 変換が失敗しました。"
+        f"Office と pywin32 は検出済みです (未導入ではありません)。"
+        f"対象文書へのアクセス権 (IRM/RMS の場合)、Office の自動化許可、"
+        f"保存先の書き込み可否などを確認してください。"
     )
     if cause is not None:
         msg += f" (原因: {cause})"
@@ -71,16 +102,40 @@ def _require_win32com(ext: str, app: str, action: str) -> None:
 # --- Office アプリ別のコンバータ (COM 経由で OOXML を書き出す) ----------------
 #
 # 旧形式でも暗号化 OOXML でも、Office で開いて OOXML へ SaveAs すれば
-# 「旧形式であること」も「暗号化」も落ちた平文 OOXML が得られる。SaveAs の
-# FileFormat 定数は Office の enum 値をそのまま使う:
+# 「旧形式であること」も落ちた OOXML が得られる。ただし SaveAs は既定で
+# ソースの IRM/RMS ラベルを保存先へ再適用するため、そのままでは OLE2 複合
+# ファイル (暗号化 OOXML) のまま出力され、後段の openpyxl 等が
+# 「File is not a zip file」で開けない。SaveAs の前に必ず _disable_irm() で
+# Permission を無効化し、平文 OOXML を得る。FileFormat 定数は Office の
+# enum 値をそのまま使う:
 #   Excel      xlOpenXMLWorkbook            = 51  (.xlsx)
 #   Word       wdFormatDocumentDefault      = 16  (.docx)
 #   PowerPoint ppSaveAsOpenXMLPresentation  = 24  (.pptx)
 
 
+def _disable_irm(document: object) -> None:
+    """SaveAs が IRM/RMS ラベルを引き継がないよう Permission を無効化する。
+
+    Excel/Word/PowerPoint いずれも ``document.Permission.Enabled = False`` で
+    共通に扱える。非 IRM 文書では元々権限が無いため no-op として安全に呼べる
+    (例外は握り潰す)。これを呼ばないと Office は保存先にも同じラベルを再適用し、
+    暗号化された OLE2 コンテナのまま保存されて平文 OOXML が得られない。
+    """
+    try:
+        document.Permission.Enabled = False
+    except Exception:
+        pass  # 非 IRM 文書 / Permission 非対応なら不要
+
+
 def _convert_excel(src: Path, dst: Path) -> None:
     import pythoncom
     import win32com.client as com
+
+    # Office COM は呼び出し側の cwd を共有しない。相対パスは Excel の作業
+    # ディレクトリ基準で解決され「ファイルが見つからない」で失敗するため、
+    # Open/SaveAs に渡す前に必ず絶対パス化する。
+    src_abs = str(Path(src).resolve())
+    dst_abs = str(Path(dst).resolve())
 
     pythoncom.CoInitialize()
     app = None
@@ -88,9 +143,10 @@ def _convert_excel(src: Path, dst: Path) -> None:
         app = com.DispatchEx("Excel.Application")
         app.Visible = False
         app.DisplayAlerts = False
-        wb = app.Workbooks.Open(str(src), ReadOnly=True)
+        wb = app.Workbooks.Open(src_abs, ReadOnly=True)
         try:
-            wb.SaveAs(str(dst), FileFormat=51)  # xlOpenXMLWorkbook (.xlsx)
+            _disable_irm(wb)
+            wb.SaveAs(dst_abs, FileFormat=51)  # xlOpenXMLWorkbook (.xlsx)
         finally:
             wb.Close(SaveChanges=False)
     finally:
@@ -103,6 +159,10 @@ def _convert_word(src: Path, dst: Path) -> None:
     import pythoncom
     import win32com.client as com
 
+    # Office COM は cwd を共有しないため、必ず絶対パスで渡す (_convert_excel 参照)
+    src_abs = str(Path(src).resolve())
+    dst_abs = str(Path(dst).resolve())
+
     pythoncom.CoInitialize()
     app = None
     try:
@@ -110,9 +170,10 @@ def _convert_word(src: Path, dst: Path) -> None:
         app.Visible = False
         app.DisplayAlerts = 0  # wdAlertsNone
         # ConfirmConversions=False で「形式変換」ダイアログ待ちを避ける
-        doc = app.Documents.Open(str(src), ReadOnly=True, ConfirmConversions=False)
+        doc = app.Documents.Open(src_abs, ReadOnly=True, ConfirmConversions=False)
         try:
-            doc.SaveAs2(str(dst), FileFormat=16)  # wdFormatDocumentDefault (.docx)
+            _disable_irm(doc)
+            doc.SaveAs2(dst_abs, FileFormat=16)  # wdFormatDocumentDefault (.docx)
         finally:
             doc.Close(SaveChanges=False)
     finally:
@@ -125,14 +186,19 @@ def _convert_powerpoint(src: Path, dst: Path) -> None:
     import pythoncom
     import win32com.client as com
 
+    # Office COM は cwd を共有しないため、必ず絶対パスで渡す (_convert_excel 参照)
+    src_abs = str(Path(src).resolve())
+    dst_abs = str(Path(dst).resolve())
+
     pythoncom.CoInitialize()
     app = None
     try:
         app = com.DispatchEx("PowerPoint.Application")
         # PowerPoint は Visible=False を嫌う版があるため、ウィンドウ無しで開く
-        pres = app.Presentations.Open(str(src), ReadOnly=True, WithWindow=False)
+        pres = app.Presentations.Open(src_abs, ReadOnly=True, WithWindow=False)
         try:
-            pres.SaveAs(str(dst), 24)  # ppSaveAsOpenXMLPresentation (.pptx)
+            _disable_irm(pres)
+            pres.SaveAs(dst_abs, 24)  # ppSaveAsOpenXMLPresentation (.pptx)
         finally:
             pres.Close()
     finally:
@@ -169,10 +235,11 @@ def _convert_and_extract(
             spec["convert"](Path(path), dst)
         except OfficeUnavailableError:
             raise
-        except Exception as e:  # COM/pywin32 の各種例外 (Office 未導入・権限不足等)
-            raise _office_required_error(source_ext, app, action, cause=e) from e
+        except Exception as e:  # ここに来た時点で pywin32 は import 済み。
+            # Office 未導入ではなく COM 変換自体の失敗 (パス不正・権限拒否等)。
+            raise _com_conversion_error(source_ext, app, action, cause=e) from e
         if not dst.is_file():
-            raise _office_required_error(
+            raise _com_conversion_error(
                 source_ext, app, action, cause="変換後ファイルが生成されませんでした"
             )
         # 変換済み OOXML を既存抽出器で処理 (saver をそのまま渡し画像も回収)

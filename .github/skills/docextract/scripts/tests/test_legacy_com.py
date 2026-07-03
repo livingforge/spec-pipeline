@@ -56,23 +56,60 @@ def test_office_unavailable_is_runtime_error(ext, tmp_path):
         extractor(Path("dummy" + ext), ImageSaver(tmp_path))
 
 
-def test_convert_failure_is_wrapped_with_office_message(monkeypatch, tmp_path):
-    """変換中の任意例外 (Office 未導入等) も Office 必須メッセージへ包み直す。
+def test_import_failure_message_names_install_command(tmp_path):
+    """pywin32 不在時のメッセージは自動導入されない旨と実コマンドを案内する。"""
+    extractor = docextract.available_extractors()[".xls"]
+    with pytest.raises(OfficeUnavailableError) as ei:
+        extractor(Path("dummy.xls"), ImageSaver(tmp_path))
+    msg = str(ei.value)
+    # 失敗ログを読んで手で調べ直さずに済むよう具体コマンドを出す
+    assert "pip install" in msg and "pywin32" in msg
+    assert "自動導入されない" in msg
 
-    pywin32 が import できる前提に置き換えたうえで、COM 変換が例外を投げる
-    状況を模し、生の COM 例外ではなく OfficeUnavailableError になることを見る。
+
+def test_convert_failure_reports_office_detected_not_missing(monkeypatch, tmp_path):
+    """COM 変換自体の失敗は「Office/pywin32 は検出済み」として切り分けて報告する。
+
+    pywin32 が import できる前提に置き換えたうえで COM 変換が例外を投げる状況を
+    模し、生の COM 例外ではなく OfficeUnavailableError になること、かつ
+    「未導入」ではなく「検出済み」の文言で報告されることを見る (Excel 未導入への
+    誤診を防ぐ)。
     """
     monkeypatch.setattr(legacy_com, "_require_win32com", lambda ext, app, action: None)
 
     def _boom(src, dst):
-        raise OSError("COM サーバに接続できません")  # Office 未起動を模す
+        raise OSError("COM サーバに接続できません")  # Open/SaveAs の失敗を模す
 
     monkeypatch.setitem(legacy_com._APP_SPEC["Excel"], "convert", _boom)
     extractor = docextract.available_extractors()[".xls"]
     with pytest.raises(OfficeUnavailableError) as ei:
         extractor(Path("dummy.xls"), ImageSaver(tmp_path))
-    assert "Office" in str(ei.value)
-    assert "COM サーバに接続できません" in str(ei.value)  # 原因を握り潰さない
+    msg = str(ei.value)
+    assert "COM サーバに接続できません" in msg  # 原因を握り潰さない
+    assert "検出済み" in msg  # 未導入ではないと切り分けている
+    # 変換失敗経路では「pywin32 を入れろ」の誤誘導をしない
+    assert "自動導入されない" not in msg
+
+
+def test_disable_irm_sets_permission_and_swallows_errors():
+    """_disable_irm は Permission.Enabled=False を立て、非対応でも例外にしない。"""
+
+    class _Perm:
+        Enabled = True
+
+    class _Doc:
+        Permission = _Perm()
+
+    doc = _Doc()
+    legacy_com._disable_irm(doc)
+    assert doc.Permission.Enabled is False
+
+    class _NoPerm:
+        @property
+        def Permission(self):  # 非 IRM 文書 / 非対応を模す
+            raise AttributeError("Permission not supported")
+
+    legacy_com._disable_irm(_NoPerm())  # no-op として例外を出さない
 
 
 def test_successful_conversion_delegates_and_relabels(monkeypatch, tmp_path):
