@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import threading
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
@@ -23,6 +24,8 @@ _CROP_MARGIN = 8
 
 _layout_engine = None
 _table_engine = None
+# 並列抽出でレイアウト/表構造モデル (数十 MB) を二重構築しないよう、初回構築を排他する。
+_engine_lock = threading.Lock()
 
 
 def is_available() -> bool:
@@ -71,38 +74,44 @@ def detect_tables(
 
 def _get_layout_engine():
     global _layout_engine
-    if _layout_engine is None:
-        from .quiet import silence_third_party
+    if _layout_engine is not None:  # 構築済みならロック無しで即返す
+        return _layout_engine
+    with _engine_lock:
+        if _layout_engine is None:  # ロック取得までの二重構築を防ぐ
+            from .quiet import silence_third_party
 
-        silence_third_party()  # レイアウトモデル読み込み時のノイズを抑える
-        from rapid_layout import RapidLayout
+            silence_third_party()  # レイアウトモデル読み込み時のノイズを抑える
+            from rapid_layout import RapidLayout
 
-        _layout_engine = RapidLayout()
+            _layout_engine = RapidLayout()
     return _layout_engine
 
 
 def _get_table_engine(lang: str):
     global _table_engine
-    if _table_engine is None:
-        from .quiet import silence_third_party
+    if _table_engine is not None:  # 構築済みならロック無しで即返す
+        return _table_engine
+    with _engine_lock:
+        if _table_engine is None:  # ロック取得までの二重構築を防ぐ
+            from .quiet import silence_third_party
 
-        silence_third_party()  # 表構造モデル読み込み時のノイズを抑える
-        from rapid_table import RapidTable
-        from rapid_table.utils.typings import RapidTableInput
+            silence_third_party()  # 表構造モデル読み込み時のノイズを抑える
+            from rapid_table import RapidTable
+            from rapid_table.utils.typings import RapidTableInput
 
-        from .ocr import _get_rapidocr_engine
+            from .ocr import _get_rapidocr_engine
 
-        # RapidTable は use_ocr=True で生成すると内部に *もう1つ* RapidOCR
-        # (det/cls/rec の3モデル) を読み込む。これは ocr_image が使うエンジンと
-        # 同一言語の完全な重複で、常駐メモリを二重に消費する主因になる。
-        # そこで use_ocr=False で構築して内部 OCR を作らせず、生成後に共有
-        # インスタンスを注入したうえで OCR 経路だけ有効化する。これで RapidOCR
-        # 1 セット分の常駐メモリを丸ごと削減できる (表セルの文字認識精度は
-        # 同一エンジンを使うため不変)。
-        engine = RapidTable(RapidTableInput(use_ocr=False))
-        engine.ocr_engine = _get_rapidocr_engine(lang)
-        engine.cfg.use_ocr = True
-        _table_engine = engine
+            # RapidTable は use_ocr=True で生成すると内部に *もう1つ* RapidOCR
+            # (det/cls/rec の3モデル) を読み込む。これは ocr_image が使うエンジンと
+            # 同一言語の完全な重複で、常駐メモリを二重に消費する主因になる。
+            # そこで use_ocr=False で構築して内部 OCR を作らせず、生成後に共有
+            # インスタンスを注入したうえで OCR 経路だけ有効化する。これで RapidOCR
+            # 1 セット分の常駐メモリを丸ごと削減できる (表セルの文字認識精度は
+            # 同一エンジンを使うため不変)。
+            engine = RapidTable(RapidTableInput(use_ocr=False))
+            engine.ocr_engine = _get_rapidocr_engine(lang)
+            engine.cfg.use_ocr = True
+            _table_engine = engine
     return _table_engine
 
 

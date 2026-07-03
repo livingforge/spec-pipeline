@@ -14,9 +14,10 @@ import argparse
 import glob
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from . import SUPPORTED_EXTENSIONS, extract, manifest, obs, paths, sensitivity
+from . import SUPPORTED_EXTENSIONS, config, extract, manifest, obs, paths, sensitivity
 from .extractors import (
     LEGACY_EXTENSIONS,
     PYWIN32_INSTALL_HINT,
@@ -132,6 +133,18 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "-j",
+        "--max-parallel",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "フォルダ一括抽出で同時に処理する文書の最大数 "
+            "(既定: config.json の max_parallel、無ければ 3)。1 で直列。"
+            "文書ごとに独立した出力先へ書くため安全に並列化できる"
+        ),
+    )
+    parser.add_argument(
         "-q",
         "--quiet",
         action="store_true",
@@ -225,8 +238,17 @@ def main(argv: list[str] | None = None) -> int:
     # 出力先配下 logs/<run_id>.jsonl に残す。extract() にも渡して同じ ID で貫く。
     log = obs.open_run("docextract.cli", args.run_id, base_dir=args.output_dir)
     run_id = log.run_id
-    log.event("run.start", targets=len(files))
-    info(f"[run] run_id={run_id} 対象={len(files)} 件")
+
+    # 同時抽出数を決める: CLI フラグ (明示) > config.json > 組み込み既定 3。
+    # 1 で直列。対象件数を超えるワーカーは無駄なので件数で頭打ちにする。
+    if args.max_parallel is not None:
+        max_parallel = args.max_parallel
+    else:
+        max_parallel = config.load().get("max_parallel", config.DEFAULTS["max_parallel"])
+    workers = max(1, min(max_parallel, len(files)))
+
+    log.event("run.start", targets=len(files), parallel=workers)
+    info(f"[run] run_id={run_id} 対象={len(files)} 件 並列={workers}")
 
     # pywin32 (Office COM) の前提チェック。旧形式 (.xls/.doc/.ppt) と IRM/RMS 保護
     # 文書は Office COM 変換を要し、pywin32 が無ければ**対象ごとに同一のエラー**に
@@ -289,28 +311,57 @@ def main(argv: list[str] | None = None) -> int:
 
     processed_ids: list[str] = []
     failures: list[dict[str, str]] = []
-    for path in files:
-        try:
-            data = extract(
-                path,
-                output_dir=args.output_dir,
-                ocr=not args.no_ocr,
-                ocr_lang=args.ocr_lang,
-                ocr_backend=args.ocr_backend,
-                image_tables=not args.no_image_tables,
-                run_id=run_id,
-                log=log.child("docextract"),
+
+    def _process(path: Path):
+        """1 文書を抽出する (ワーカースレッドで実行)。
+
+        文書ごとに出力先 (``<id>/``) が独立し、共有台帳 index.json は manifest 側の
+        ロックで直列化されるため、複数スレッドから同時に呼んでも安全。
+        """
+        return extract(
+            path,
+            output_dir=args.output_dir,
+            ocr=not args.no_ocr,
+            ocr_lang=args.ocr_lang,
+            ocr_backend=args.ocr_backend,
+            image_tables=not args.no_image_tables,
+            run_id=run_id,
+            log=log.child("docextract"),
+        )
+
+    # 最大 workers 件を同時に抽出する。結果は完了順に受け取るが、報告
+    # (processed_ids/failures/[OK]/[NG]) は入力順に整列し、並列でも直列でも
+    # 同じ出力・同じ順序になるようにする (再現性)。
+    ok_by_idx: dict[int, tuple[Path, dict]] = {}
+    err_by_idx: dict[int, tuple[Path, Exception]] = {}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        future_to_idx = {
+            pool.submit(_process, path): idx for idx, path in enumerate(files)
+        }
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                data = future.result()
+            except Exception as e:  # noqa: BLE001 — 1 文書の失敗で全体を止めない
+                err_by_idx[idx] = (files[idx], e)
+            else:
+                ok_by_idx[idx] = (files[idx], data)
+
+    for idx in range(len(files)):
+        if idx in ok_by_idx:
+            path, data = ok_by_idx[idx]
+            summary = (
+                ", ".join(f"{k}={v}" for k, v in data["summary"].items()) or "抽出なし"
             )
-        except Exception as e:
+            out = Path(args.output_dir) / data["id"] / "result.json"
+            processed_ids.append(data["id"])
+            info(f"[OK] {path} -> {out} (id={data['id']}, {summary})")
+        else:
+            path, e = err_by_idx[idx]
             log.error("run.doc_failed", source=str(path), error=repr(e))
             print(f"[NG] {path}: {e} (run_id={run_id})", file=sys.stderr)
             failures.append({"source": str(path), "error": str(e)})
             failed += 1
-            continue
-        summary = ", ".join(f"{k}={v}" for k, v in data["summary"].items()) or "抽出なし"
-        out = Path(args.output_dir) / data["id"] / "result.json"
-        processed_ids.append(data["id"])
-        info(f"[OK] {path} -> {out} (id={data['id']}, {summary})")
 
     # 内容が同一の文書 (別名でコピーされた資料など) をマニフェストから検知して知らせる。
     # ID はパスごとに一意なので抽出は正しく分離されるが、重複は把握しておく価値がある。

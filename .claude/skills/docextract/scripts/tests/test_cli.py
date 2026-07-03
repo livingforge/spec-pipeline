@@ -170,6 +170,69 @@ def test_dir_and_files_deduplicated(tmp_path, make_docx, capsys):
     assert capsys.readouterr().out.count("[OK]") == 1
 
 
+# --------------------------------------------------------------------------
+# 並列抽出 (--max-parallel / config max_parallel)
+# --------------------------------------------------------------------------
+def test_parallel_extraction_records_all_in_manifest(tmp_path, make_docx, capsys):
+    # 並列でも index.json (読み込み→更新→書き戻し) から登録が欠落しないこと。
+    # ロックが無いと後勝ちでエントリが取りこぼされ、documents 数が減る。
+    src = tmp_path / "src"
+    src.mkdir()
+    n = 16
+    for i in range(n):
+        make_docx(f"src/doc{i:02d}.docx", paragraphs=[(f"content {i}", None)])
+    out = tmp_path / "out"
+    rc = main(["--dir", str(src), "-j", "8", "-q", "--json-summary", "-o", str(out)])
+    assert rc == 0
+    rec = json.loads(capsys.readouterr().out.strip())
+    assert rec["succeeded"] == n
+    assert len(rec["ids"]) == n
+    assert len(set(rec["ids"])) == n  # ID は文書ごとに一意
+    manifest_data = json.loads((out / "index.json").read_text(encoding="utf-8-sig"))
+    assert len(manifest_data["documents"]) == n  # 台帳からの取りこぼしゼロ
+
+
+def test_parallel_reports_in_input_order(tmp_path, make_docx, capsys):
+    # 完了順に受けても報告 (ids) は入力順 (パスソート順) に整列する。
+    src = tmp_path / "src"
+    src.mkdir()
+    for i in range(5):
+        make_docx(f"src/d{i}.docx", paragraphs=[(f"x{i}", None)])
+    rc = main(["--dir", str(src), "-j", "4", "-q", "--json-summary", "-o", str(tmp_path / "out")])
+    assert rc == 0
+    rec = json.loads(capsys.readouterr().out.strip())
+    assert len(rec["ids"]) == 5  # 5 件そろい、重複なし
+    assert len(set(rec["ids"])) == 5
+
+
+def test_serial_when_max_parallel_one(tmp_path, make_docx, capsys):
+    src = tmp_path / "src"
+    src.mkdir()
+    make_docx("src/a.docx", paragraphs=[("x", None)])
+    make_docx("src/b.docx", paragraphs=[("y", None)])
+    rc = main(["--dir", str(src), "-j", "1", "-o", str(tmp_path / "out")])
+    assert rc == 0
+    assert capsys.readouterr().out.count("[OK]") == 2
+
+
+def test_max_parallel_from_config(tmp_path, make_docx, monkeypatch, capsys):
+    # config.json の max_parallel を CLI フラグ無しで拾う。
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "config.json").write_text(
+        json.dumps({"max_parallel": 2}), encoding="utf-8"
+    )
+    monkeypatch.setenv("DOCEXTRACT_HOME", str(home))
+    src = tmp_path / "src"
+    src.mkdir()
+    for i in range(4):
+        make_docx(f"src/d{i}.docx", paragraphs=[("x", None)])
+    rc = main(["--dir", str(src), "-q", "--json-summary"])  # 出力は home/output
+    assert rc == 0
+    rec = json.loads(capsys.readouterr().out.strip())
+    assert rec["succeeded"] == 4
+
+
 def test_missing_dir_reports_ng(tmp_path, capsys):
     rc = main(["--dir", str(tmp_path / "ghost"), "-o", str(tmp_path / "out")])
     assert rc == 1

@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +34,10 @@ from typing import Any, Callable, Optional
 ENV_RUN_ID = "DOCEXTRACT_RUN_ID"
 ENV_LOG = "DOCEXTRACT_LOG"
 ENV_LOG_STDERR = "DOCEXTRACT_LOG_STDERR"
+
+# 並列抽出では複数スレッドが同じ監査ログへ追記する。1 レコード = 1 行の JSON Lines
+# を保つため、ファイル追記をプロセス内ロックで直列化し、行が混ざらないようにする。
+_emit_lock = threading.Lock()
 
 
 def _now_iso() -> str:
@@ -118,13 +123,14 @@ class Run:
     def _emit(self, rec: dict[str, Any]) -> None:
         line = json.dumps(rec, ensure_ascii=False)
         if self.log_path is not None:
-            try:
-                self.log_path.parent.mkdir(parents=True, exist_ok=True)
-                with self.log_path.open("a", encoding="utf-8") as f:
-                    f.write(line + "\n")
-            except OSError:
-                # 監査ログの書き込み失敗で本処理を止めない (観測は best-effort)。
-                pass
+            with _emit_lock:
+                try:
+                    self.log_path.parent.mkdir(parents=True, exist_ok=True)
+                    with self.log_path.open("a", encoding="utf-8") as f:
+                        f.write(line + "\n")
+                except OSError:
+                    # 監査ログの書き込み失敗で本処理を止めない (観測は best-effort)。
+                    pass
         if self._mirror_stderr:
             print(line, file=sys.stderr)
         if self._extra_sink is not None:

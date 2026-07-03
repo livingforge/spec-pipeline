@@ -15,6 +15,8 @@ LLM/エージェントに渡す標準出力は、ホスト側 (Claude Code は B
     list_preview_chars  ``list`` / ``query`` のスリム射影 preview の短縮長。
     fact_evidence_chars ``facts`` 一覧の evidence (原文抜粋) の短縮長。
     preview_chars       登録時に result.json から作る preview の長さ。
+    max_parallel        フォルダ一括抽出 (``--dir``) で同時に処理する文書の最大数。
+                        1 で直列。既定 3。CLI の ``--max-parallel/-j`` で上書き可。
 
 優先順位は **CLI フラグ (明示) > config.json > 組み込み既定 DEFAULTS**。config.json が
 無い/一部欠落/不正でも、その分だけ DEFAULTS にフォールバックする (fail-open。
@@ -40,6 +42,7 @@ DEFAULTS: dict[str, int] = {
     "list_preview_chars": 200,
     "fact_evidence_chars": 200,
     "preview_chars": 600,
+    "max_parallel": 3,
 }
 
 
