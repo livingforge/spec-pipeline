@@ -72,6 +72,9 @@ def detect_tables(
 def _get_layout_engine():
     global _layout_engine
     if _layout_engine is None:
+        from .quiet import silence_third_party
+
+        silence_third_party()  # レイアウトモデル読み込み時のノイズを抑える
         from rapid_layout import RapidLayout
 
         _layout_engine = RapidLayout()
@@ -81,6 +84,9 @@ def _get_layout_engine():
 def _get_table_engine(lang: str):
     global _table_engine
     if _table_engine is None:
+        from .quiet import silence_third_party
+
+        silence_third_party()  # 表構造モデル読み込み時のノイズを抑える
         from rapid_table import RapidTable
         from rapid_table.utils.typings import RapidTableInput
 

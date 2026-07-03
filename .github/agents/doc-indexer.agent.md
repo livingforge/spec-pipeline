@@ -21,7 +21,7 @@ PowerPoint/PDF）の集まりを一括で抽出し、後工程（仕様の洗い
 このエージェントが実行してよいのは次の固定サブコマンド群だけ。任意のシェル操作・
 ファイル改変・ネットワークコマンドは実行しない（`runCommands`/`Bash` は付与されているが
 用途をここに限定する）。
-- `python .github/skills/docextract/scripts/run_docextract.py --dir <フォルダ> [-r] [-o <出力先>]`
+- `python .github/skills/docextract/scripts/run_docextract.py --dir <フォルダ> [-r] [-o <出力先>] --quiet --json-summary`
 - `python .github/skills/docextract/scripts/run_docagent.py {init|sync|doctypes|list|stats|set-doctype|text} ...`
 - `Glob`（対象ファイルの探索）／`Read`（`index.json` など生成物の確認）
 
@@ -48,18 +48,25 @@ DOCEXTRACT_AUTOINSTALL=1 python .github/skills/docextract/scripts/run_docextract
    見つかった件数とファイル名を提示して「これらを索引化してよいか」確認する。
    旧形式（`.doc/.xls/.ppt`）は新形式への変換を依頼する。
 
-2. **抽出** — フォルダ内を一括抽出する（サブフォルダも辿るなら `-r`）:
+2. **抽出** — フォルダ内を一括抽出する（サブフォルダも辿るなら `-r`）。**必ず
+   `--quiet --json-summary` を付ける**。ファイルごとの `[OK]` 進捗行（件数に比例して
+   膨らみコンテキストを圧迫する）を抑制し、標準出力を機械可読な 1 行の「レシート」に
+   絞るため:
    ```
-   python .github/skills/docextract/scripts/run_docextract.py --dir <フォルダ> -r
+   python .github/skills/docextract/scripts/run_docextract.py --dir <フォルダ> -r --quiet --json-summary
    ```
    - **初回はセットアップの高リスク操作（依存インストール数百 MB／OCR・表検出モデル取得数十 MB）
      が走る。** 上の「セットアップ（事前承認ゲート）」に従い、内容と規模を提示して承認を得てから、
      承認済みの実行に限り `DOCEXTRACT_AUTOINSTALL=1` を付けて起動する。承認なしに自動実行しない。
    - 文書ごとに `.docextract/output/<id>/result.json` が作られる。`<id>` は
      **ファイルパス由来で衝突しない**ため、別フォルダの同名ファイルも取り違えない。
-   - 出力先頭の `[run] run_id=...` はこの実行の相関 ID。報告に含め、一連の処理を後から追える。
-   - 出力に `[!] 内容が同一の文書があります` が出たら、内容重複として控えておく。
-   - `[NG]` で失敗した文書は下の「失敗時の扱い」に従いスキップし、理由を残す。
+   - 標準出力の最終 1 行が JSON サマリ（`{run_id, succeeded, failed, output_dir, index,
+     log_path, ids, failures, duplicates}`）。これだけを読めばよい:
+     - `run_id` — この実行の相関 ID。報告に含め、一連の処理を後から追える。
+     - `duplicates`（非空なら内容重複の組）を控えておく。
+     - `failures`（各 `{source, error}`）は下の「失敗時の扱い」に従いスキップし理由を残す（`[NG]` が stderr にも出る）。
+   - **抽出本文はサマリに含まれない**。各文書の中身は次工程で `index.json` →各 `result.json`
+     を通じてオンデマンドに読む。生の標準出力をそのまま報告へ貼らない。
 
 3. **索引化** — 初回のみ `init`、その後 `sync` で抽出マニフェストの全文書を一括登録する:
    ```
@@ -102,7 +109,7 @@ happy-path だけでなく、失敗時の分岐を規約として守る:
 
 ## 出力（呼び出し元への報告）
 機械可読性を意識しつつ、次を**表**で分かりやすくまとめる:
-- 抽出実行の **`run_id`**（`[run] run_id=...`）— 一連の処理を横断追跡できる相関 ID
+- 抽出実行の **`run_id`**（JSON サマリの `run_id`）— 一連の処理を横断追跡できる相関 ID
 - 文書 ID / 元ファイル名 / **文書種別** / 形式 / 要素数（`list --json` の各 `stats`） / result.json の場所
 - 内容が重複している組（あれば。どれを正とするかは判断せず、事実として提示）
 - 抽出できなかったファイルがあれば、その理由（未対応形式・空・破損・取得失敗）

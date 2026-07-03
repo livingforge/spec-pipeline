@@ -72,6 +72,9 @@ def ocr_image(path: str | Path, lang: str = "ja", backend: str = "auto") -> Opti
 def _get_rapidocr_engine(lang: str):
     key = _RAPIDOCR_LANG.get(lang, lang)
     if key not in _rapidocr_engines:
+        from .quiet import silence_third_party
+
+        silence_third_party()  # モデル読み込み時の警告/DL進捗が stdout を汚さないように
         from rapidocr import RapidOCR
 
         params: dict[str, object] = {"Rec.lang_type": key, "Global.log_level": "error"}

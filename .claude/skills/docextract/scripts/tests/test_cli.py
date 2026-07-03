@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -187,3 +188,69 @@ def test_no_inputs_errors_out(capsys):
     with pytest.raises(SystemExit) as exc:
         main([])
     assert exc.value.code == 2
+
+
+# --------------------------------------------------------------------------
+# --quiet / --json-summary — LLM/エージェント向けの標準出力抑制とレシート
+# --------------------------------------------------------------------------
+def test_quiet_suppresses_progress_lines(tmp_path, make_docx, capsys):
+    src = make_docx("a.docx", paragraphs=[("hi", None)])
+    rc = main([str(src), "-q", "-o", str(tmp_path / "out")])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # 進捗行 ([run]/[OK]/[done]) は出ない
+    assert "[OK]" not in out
+    assert "[run]" not in out
+    assert "[done]" not in out
+
+
+def test_quiet_still_reports_failures_on_stderr(tmp_path, capsys):
+    rc = main([str(tmp_path / "ghost.pdf"), "-q", "-o", str(tmp_path / "out")])
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""  # stdout は完全に静か
+    assert "[NG]" in captured.err  # エラーは stderr に残る
+
+
+def test_json_summary_is_single_parseable_line(tmp_path, make_docx, capsys):
+    src = make_docx("a.docx", paragraphs=[("hi", None)])
+    out_dir = tmp_path / "out"
+    rc = main([str(src), "-q", "--json-summary", "-o", str(out_dir)])
+    assert rc == 0
+    stdout = capsys.readouterr().out
+    # --quiet と併用したので stdout はサマリ 1 行だけ
+    lines = [ln for ln in stdout.splitlines() if ln.strip()]
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["event"] == "summary"
+    assert rec["succeeded"] == 1
+    assert rec["failed"] == 0
+    assert rec["run_id"].startswith("run_")
+    assert rec["index"] == str(out_dir / "index.json")
+    assert len(rec["ids"]) == 1
+    assert rec["failures"] == []
+
+
+def test_json_summary_records_failures(tmp_path, make_docx, capsys):
+    good = make_docx("ok.docx", paragraphs=[("hi", None)])
+    bad = tmp_path / "bad.txt"
+    bad.write_text("x", encoding="utf-8")
+    rc = main([str(good), str(bad), "-q", "--json-summary", "-o", str(tmp_path / "out")])
+    assert rc == 1
+    rec = json.loads(capsys.readouterr().out.strip())
+    assert rec["succeeded"] == 1
+    assert rec["failed"] == 1
+    assert len(rec["failures"]) == 1
+    assert rec["failures"][0]["source"] == str(bad)
+    assert rec["failures"][0]["error"]
+
+
+def test_json_summary_without_quiet_appends_after_progress(tmp_path, make_docx, capsys):
+    # --quiet を付けなければ人向け進捗行 + 末尾に JSON サマリ 1 行
+    src = make_docx("a.docx", paragraphs=[("hi", None)])
+    rc = main([str(src), "--json-summary", "-o", str(tmp_path / "out")])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "[OK]" in out
+    rec = json.loads(out.splitlines()[-1])  # 最終行がサマリ
+    assert rec["event"] == "summary"

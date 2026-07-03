@@ -61,6 +61,11 @@ python .claude/skills/docextract/scripts/run_docextract.py --dir <folder> -r -o 
   Office temp files (`~$…`) are skipped
 - Other flags: `--no-ocr`, `--no-image-tables`, `--ocr-lang ja`,
   `--ocr-backend auto|rapidocr|windows`
+- **Feeding stdout to an LLM?** Add `--quiet --json-summary` so stdout collapses to a
+  single machine-readable line `{run_id, succeeded, failed, output_dir, index, log_path,
+  ids, failures, duplicates}` instead of one `[OK]` line per file. The extracted content
+  lives in `index.json` → each `result.json`; read only the docs you need, on demand.
+  See [docs/usage.md](docs/usage.md#llm--エージェントに渡すとき--標準出力をレシートにする).
 
 Work with extracted results through the same launcher:
 `python .claude/skills/docextract/scripts/run_docagent.py <subcommand>`.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import json
 import sys
 from pathlib import Path
 
@@ -100,6 +101,25 @@ def main(argv: list[str] | None = None) -> int:
             "無ければ自動採番)。docextract→docagent を同じ ID で貫きたいときに使う"
         ),
     )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help=(
+            "ファイルごとの [OK] 等の進捗行を抑制し、エラー ([NG]) のみ stderr に出す。"
+            "LLM/エージェントに標準出力を渡す際のコンテキスト圧迫を避ける。"
+            "--json-summary と併用すると stdout は最終サマリ 1 行だけになる"
+        ),
+    )
+    parser.add_argument(
+        "--json-summary",
+        action="store_true",
+        help=(
+            "処理終了時に機械可読な 1 行 JSON サマリ (run_id/成否件数/出力先/"
+            "index.json パス/失敗一覧/重複) を stdout に出す。詳細は出力先の "
+            "index.json・result.json・logs/<run_id>.jsonl を参照する前提の「レシート」"
+        ),
+    )
     # Windows コンソール (cp932) でも日本語を安全に出力する
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -108,6 +128,11 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
     args = parser.parse_args(argv)
+
+    def info(msg: str) -> None:
+        """人向けの進捗行。``--quiet`` では抑制する (エラーは別途 stderr へ)。"""
+        if not args.quiet:
+            print(msg)
 
     # 既定の出力先を解決 (extract() 内部でも解決されるが、下の完了メッセージで
     # 実際の出力先を表示するためここで確定させておく)。
@@ -158,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         matched = _scan_dir(dp, args.recursive)
         if not matched:
             scope = "（サブフォルダ含む）" if args.recursive else ""
-            print(f"[--] 対応ファイルが見つかりません{scope}: {dp}")
+            info(f"[--] 対応ファイルが見つかりません{scope}: {dp}")
         for f in matched:
             add_file(f)
 
@@ -171,8 +196,9 @@ def main(argv: list[str] | None = None) -> int:
     log = obs.open_run("docextract.cli", args.run_id, base_dir=args.output_dir)
     run_id = log.run_id
     log.event("run.start", targets=len(files))
-    print(f"[run] run_id={run_id} 対象={len(files)} 件")
+    info(f"[run] run_id={run_id} 対象={len(files)} 件")
     processed_ids: list[str] = []
+    failures: list[dict[str, str]] = []
     for path in files:
         try:
             data = extract(
@@ -188,22 +214,26 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             log.error("run.doc_failed", source=str(path), error=repr(e))
             print(f"[NG] {path}: {e} (run_id={run_id})", file=sys.stderr)
+            failures.append({"source": str(path), "error": str(e)})
             failed += 1
             continue
         summary = ", ".join(f"{k}={v}" for k, v in data["summary"].items()) or "抽出なし"
         out = Path(args.output_dir) / data["id"] / "result.json"
         processed_ids.append(data["id"])
-        print(f"[OK] {path} -> {out} (id={data['id']}, {summary})")
+        info(f"[OK] {path} -> {out} (id={data['id']}, {summary})")
 
     # 内容が同一の文書 (別名でコピーされた資料など) をマニフェストから検知して知らせる。
     # ID はパスごとに一意なので抽出は正しく分離されるが、重複は把握しておく価値がある。
+    dup_groups: list[list[str]] = []
     if processed_ids:
         seen = set(processed_ids)
         mdata = manifest.load(Path(args.output_dir) / "index.json")
         for ids in manifest.duplicates(mdata).values():
             if any(i in seen for i in ids):
-                log.warn("run.duplicate", ids=sorted(ids))
-                print(f"[!] 内容が同一の文書があります: {', '.join(sorted(ids))}")
+                sorted_ids = sorted(ids)
+                log.warn("run.duplicate", ids=sorted_ids)
+                dup_groups.append(sorted_ids)
+                info(f"[!] 内容が同一の文書があります: {', '.join(sorted_ids)}")
 
     # 相関 ID 付きの完了サマリ。監査ログ (JSON Lines) と標準出力の両方に残し、
     # ログだけからでも 1 実行の成否・出力先を再構成できるようにする。
@@ -213,10 +243,32 @@ def main(argv: list[str] | None = None) -> int:
         failed=failed,
         log_path=str(log.log_path) if log.log_path else None,
     )
-    print(
+    info(
         f"[done] run_id={run_id} 成功={len(processed_ids)} 失敗={failed}"
         + (f" ログ={log.log_path}" if log.log_path else "")
     )
+
+    # 機械可読な「レシート」1 行。--quiet と併用すると stdout はこの 1 行だけになり、
+    # 呼び出し側 (LLM/エージェント) は成否と出力の在り処 (index.json) だけを受け取る。
+    # 各文書の中身は index.json → 各 result.json、詳細な監査は logs/<run_id>.jsonl を辿る。
+    if args.json_summary:
+        print(
+            json.dumps(
+                {
+                    "event": "summary",
+                    "run_id": run_id,
+                    "succeeded": len(processed_ids),
+                    "failed": failed,
+                    "output_dir": str(Path(args.output_dir)),
+                    "index": str(Path(args.output_dir) / "index.json"),
+                    "log_path": str(log.log_path) if log.log_path else None,
+                    "ids": processed_ids,
+                    "failures": failures,
+                    "duplicates": dup_groups,
+                },
+                ensure_ascii=False,
+            )
+        )
     return 1 if failed else 0
 
 

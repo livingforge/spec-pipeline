@@ -52,6 +52,55 @@ _UV_INSTALL_HINT = (
 _TRUTHY = {"1", "true", "yes", "on"}
 
 
+def _bootstrap_log_path(root: Path) -> Path:
+    """セットアップ (uv venv / pip install) の詳細ログの保存先。
+
+    実行時ログ (obs の ``logs/<run_id>.jsonl``) と同じ基点に置く:
+    ``DOCEXTRACT_HOME`` があればその配下、無ければ ``<root>/.docextract``。
+    docextract 本体を import する前に呼ぶため、paths を使わず env を直接読む。
+    """
+    home = os.environ.get("DOCEXTRACT_HOME")
+    base = Path(home) if home else root / ".docextract"
+    return base / "logs" / "bootstrap.log"
+
+
+def _tail(path: Path, n: int) -> str:
+    """ログ末尾 ``n`` 行。失敗時の手掛かりを stderr に出すのに使う。"""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    return "\n".join(lines[-n:])
+
+
+def _run_step(cmd: list[str], log_path: Path, label: str) -> None:
+    """セットアップの外部コマンドを実行する。
+
+    数百 MB のダウンロードを伴う ``uv pip install`` 等は出力が極めて冗長で、
+    そのまま標準出力に流すと呼び出し側 (LLM/エージェント) のコンテキストを圧迫する。
+    そこで **非対話 (パイプ/エージェント) 実行では出力をログファイルへ退避**し、
+    stdout/stderr には要点だけ残す。対話端末ではライブ進捗が見えるようそのまま継承する。
+    失敗時はログ末尾を stderr に出して原因を追えるようにする。
+    """
+    interactive = bool(getattr(sys.stderr, "isatty", lambda: False)())
+    if interactive:
+        subprocess.run(cmd, check=True)
+        return
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8", errors="replace") as f:
+        f.write(f"\n=== {label} ===\n{' '.join(map(str, cmd))}\n")
+        f.flush()
+        proc = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+    if proc.returncode != 0:
+        print(
+            f"[bootstrap] {label} に失敗しました (詳細ログ: {log_path})\n"
+            + _tail(log_path, 40),
+            file=sys.stderr,
+        )
+        sys.exit(proc.returncode)
+    print(f"[bootstrap] {label} 完了 (詳細ログ: {log_path})", file=sys.stderr)
+
+
 def _autoinstall_opted_in() -> bool:
     """opt-in env ``DOCEXTRACT_AUTOINSTALL`` が承認値かどうか。"""
     return os.environ.get(_AUTOINSTALL_ENV, "").strip().lower() in _TRUTHY
@@ -225,6 +274,9 @@ def ensure_env(script: Path, requirements: Path, skill: str = "docextract") -> N
 
     uv = _find_uv() or _install_uv()
 
+    # セットアップの冗長な出力 (Python 本体・依存の DL 進捗) を退避するログ先。
+    boot_log = _bootstrap_log_path(venv.parent)
+
     if not venv_python.exists():
         # uv venv は要求バージョンが無ければ Python 本体をダウンロードしうる。
         _gate(
@@ -232,7 +284,11 @@ def ensure_env(script: Path, requirements: Path, skill: str = "docextract") -> N
             [f"uv venv --python >=3.10 {venv}"],
             note="Python 本体が未導入の場合は uv がダウンロードします。",
         )
-        subprocess.run([uv, "venv", "--python", ">=3.10", str(venv)], check=True)
+        _run_step(
+            [uv, "venv", "--python", ">=3.10", str(venv)],
+            boot_log,
+            "共有仮想環境の作成",
+        )
 
     # ロックファイルがあればそれを使う (ハッシュ固定 = 再現性・改竄検知)。
     req_source = _install_source(requirements)
@@ -251,10 +307,11 @@ def ensure_env(script: Path, requirements: Path, skill: str = "docextract") -> N
             [f"uv pip install --python {venv_python} -r {req_source}"],
             note=note,
         )
-        subprocess.run(
+        _run_step(
             [uv, "pip", "install", "--python", str(venv_python),
              "-r", str(req_source)],
-            check=True,
+            boot_log,
+            f"{skill} 依存パッケージのインストール",
         )
         marker.write_text(want, encoding="utf-8")
 
