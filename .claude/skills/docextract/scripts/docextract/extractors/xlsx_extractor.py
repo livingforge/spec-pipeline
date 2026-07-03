@@ -12,6 +12,11 @@ Excel の使用範囲 (used range) は書式だけのセルや削除済みデー
 - 2 行/列以上の空白で離れたセル群は別の表として分割する
 - 各表の内部でも完全な空行・空列は除去する
 
+結合セルは openpyxl では左上セルにのみ値が入るため、幅 1 の縦結合
+(表の分類列で「同上」を表す慣習) に限り値を結合範囲の全行へ展開する。
+横結合・面結合はタイトルや文章のレイアウト用途が大半で、展開すると
+同じ値が重複するだけなので左上セルのまま維持する。
+
 シートに埋め込まれた画像も取り出す。
 """
 
@@ -82,7 +87,28 @@ def _cell_to_str(v) -> str:
 
 
 def _sheet_to_grid(ws) -> list[list[str]]:
-    return [[_cell_to_str(v) for v in row] for row in ws.iter_rows(values_only=True)]
+    grid = [[_cell_to_str(v) for v in row] for row in ws.iter_rows(values_only=True)]
+    _fill_vertical_merges(ws, grid)
+    return grid
+
+
+def _fill_vertical_merges(ws, grid: list[list[str]]) -> None:
+    """幅 1 の縦結合セルの値を結合範囲の全行へ展開する (「同上」の復元)。
+
+    横結合・面結合 (幅 2 以上) はタイトル・文章のレイアウト用途が大半で、
+    展開しても同じ値が重複するだけなので対象外 (左上セルのまま)。
+    """
+    for rng in ws.merged_cells.ranges:
+        if rng.min_col != rng.max_col or rng.min_row == rng.max_row:
+            continue
+        r0, c = rng.min_row - 1, rng.min_col - 1
+        if r0 >= len(grid) or c >= len(grid[r0]):
+            continue
+        value = grid[r0][c]
+        if not value:
+            continue
+        for r in range(r0 + 1, min(rng.max_row, len(grid))):
+            grid[r][c] = value
 
 
 def _find_table_regions(

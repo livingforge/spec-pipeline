@@ -163,6 +163,40 @@ def test_image_anchor_beyond_column_z(tmp_path, make_xlsx, png_file):
     assert img["location"]["anchor"] == "AA1"
 
 
+def test_vertical_merge_filled_down(tmp_path, make_xlsx):
+    # 幅 1 の縦結合 (分類列の「同上」) は値が全行に展開される
+    src = make_xlsx(
+        sheets={"S": [["画面表示", "1"], [None, "2"], [None, "3"]]},
+        merges={"S": ["A1:A3"]},
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _tables(data)[0]["rows"] == [
+        ["画面表示", "1"],
+        ["画面表示", "2"],
+        ["画面表示", "3"],
+    ]
+
+
+def test_horizontal_merge_keeps_value_only_top_left(tmp_path, make_xlsx):
+    # 横結合 (タイトル等) は展開せず左上セルのまま
+    src = make_xlsx(
+        sheets={"S": [["タイトル", None, None], ["a", "b", "c"]]},
+        merges={"S": ["A1:C1"]},
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _tables(data)[0]["rows"] == [["タイトル", "", ""], ["a", "b", "c"]]
+
+
+def test_block_merge_keeps_value_only_top_left(tmp_path, make_xlsx):
+    # 面結合 (複数行 x 複数列、方眼紙の文章など) も展開しない
+    src = make_xlsx(
+        sheets={"S": [["本文", None, "x"], [None, None, "y"]]},
+        merges={"S": ["A1:B2"]},
+    )
+    data = _extract(src, tmp_path / "out")
+    assert _tables(data)[0]["rows"] == [["本文", "x"], ["", "y"]]
+
+
 def test_metadata_includes_sheet_names(tmp_path, make_xlsx):
     src = make_xlsx(sheets={"First": [["a"]], "Second": [["b"]]})
     data = _extract(src, tmp_path / "out")

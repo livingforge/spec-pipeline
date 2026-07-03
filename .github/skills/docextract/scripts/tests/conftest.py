@@ -82,6 +82,7 @@ def make_xlsx(tmp_path: Path):
         name: str = "book.xlsx",
         *,
         sheets: dict[str, list[list]] | None = None,
+        merges: dict[str, list[str]] | None = None,  # sheet -> ["B1:B3", ...]
         image: tuple[str, Path, str] | None = None,  # (sheet, png_path, anchor)
         title: str | None = None,
         author: str | None = None,
@@ -102,6 +103,9 @@ def make_xlsx(tmp_path: Path):
                     ws.cell(row=r, column=c, value=val)
         if not created_any:
             default.title = "Sheet1"
+        for sheet_name, refs in (merges or {}).items():
+            for ref in refs:
+                wb[sheet_name].merge_cells(ref)
         if title is not None:
             wb.properties.title = title
         if author is not None:
