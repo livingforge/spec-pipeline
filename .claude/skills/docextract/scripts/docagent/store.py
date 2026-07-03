@@ -162,12 +162,19 @@ class Library:
             "documents": self.documents,
         }
 
-    def extract_text(self, doc_id: str, max_chars: int | None = None) -> dict[str, Any]:
+    def extract_text(
+        self, doc_id: str, max_chars: int | None = None, offset: int = 0
+    ) -> dict[str, Any]:
         """result.json から本文テキストだけを組み立てて返す (軽量ビュー)。
 
         座標・レイアウト等の JSON フィールドを落とし、テキスト全文・表の全行・
         画像 OCR をプレーンテキストに整形する。モデルに渡すトークン量を
         result.json 全体の Read より大幅に抑えるための参照系。
+
+        ``offset`` から ``max_chars`` 文字だけを切り出す窓を返し (``max_chars`` が
+        ``None`` なら残り全部)、``truncated`` / ``next_offset`` で「続きがあるか・
+        次はどこから読むか」を必ず示す。これで巨大文書の全文を一度に stdout へ
+        流さず、必要な分だけページングで受け取れる。
         """
         doc = self.get(doc_id)
         result_path = Path(doc.get("result_path") or "")
@@ -180,15 +187,21 @@ class Library:
         result = json.loads(result_path.read_text(encoding="utf-8-sig"))
         text = _render_text(result)
         total = len(text)
-        truncated = max_chars is not None and total > max_chars
-        if truncated:
-            text = text[:max_chars]
+        offset = max(0, offset)
+        window = text[offset:]
+        if max_chars is not None:
+            window = window[:max_chars]
+        end = offset + len(window)
+        truncated = end < total
         return {
             "id": doc_id,
             "source": doc.get("source"),
             "total_chars": total,
+            "offset": offset,
+            "returned_chars": len(window),
             "truncated": truncated,
-            "text": text,
+            "next_offset": end if truncated else None,
+            "text": window,
         }
 
     def prep(self, target: str, max_chars: int | None = 8000) -> dict[str, Any]:

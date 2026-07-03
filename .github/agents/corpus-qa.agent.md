@@ -49,9 +49,12 @@ DOCEXTRACT_AUTOINSTALL=1 python .github/skills/docextract/scripts/run_docextract
 2. **裏取り** — 必要に応じて該当文書を深掘りする:
    ```
    python .github/skills/docextract/scripts/run_docagent.py get <id> --json     # 文書メタ・文書種別
-   python .github/skills/docextract/scripts/run_docagent.py text <id>           # 本文全文（座標なし）
+   python .github/skills/docextract/scripts/run_docagent.py text <id>           # 本文（座標なし・既定 20000 字窓）
    python .github/skills/docextract/scripts/run_docagent.py facts --doc <id>    # 抽出済みの仕様ファクト
    ```
+   `text` は既定で先頭 20000 字の窓を返し、`truncated`/`next_offset` で続きの有無を示す。
+   足りなければ `text <id> --offset <next_offset>` でページングする（全文が要るときだけ
+   `--max-chars 0`）。まず `search` で当たりを付け、必要な箇所だけ読むのがトークン効率的。
    既に @spec-extractor が抽出したファクトがあれば、それも根拠として使える。
 
 3. **回答** — 事実だけで答え、根拠には必ず出典を併記する。

@@ -50,8 +50,10 @@ DOCEXTRACT_AUTOINSTALL=1 python .claude/skills/docextract/scripts/run_docextract
    ```
    python .claude/skills/docextract/scripts/run_docagent.py prep <ID または result.json パス> --json
    ```
-   抜粋で足りないときだけ全文を取る: `... text <id>`。座標付きの厳密な確認が要る場合のみ
-   `.docextract/output/<id>/result.json` を `Read` する（通常は不要・トークンの無駄）。
+   抜粋で足りないときだけ `... text <id>`（既定 20000 字窓。`truncated`/`next_offset` が
+   続きを示すので `--offset <next_offset>` でページング、全文が要る大文書のみ `--max-chars 0`）。
+   座標付きの厳密な確認が要る場合のみ `.docextract/output/<id>/result.json` を `Read` する
+   （通常は不要・トークンの無駄）。
 
 3. **ファクトを洗い出す** — 本文・表・OCR から、次の種別に当たる事実だけを項目化する:
 - **機能要件**: システムが「できること」（〜できる／〜する）。操作・処理・出力・帳票生成など。

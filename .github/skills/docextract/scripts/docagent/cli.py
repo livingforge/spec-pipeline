@@ -48,9 +48,14 @@ def _load_facts(args: argparse.Namespace) -> FactStore:
     return FactStore.load(args.facts, args.item_types_file)
 
 
+# --json は「機械が読む」出力なので既定はコンパクト (整形空白でトークンを倍増させない)。
+# 人が目視したいときだけ --pretty で indent=2 に戻す。main() が実行時に設定する。
+_PRETTY = False
+
+
 def _emit(obj, as_json: bool, human) -> None:
     if as_json:
-        print(json.dumps(obj, ensure_ascii=False, indent=2))
+        print(json.dumps(obj, ensure_ascii=False, indent=2 if _PRETTY else None))
     else:
         human(obj)
 
@@ -61,6 +66,33 @@ def _doc_line(d: dict) -> str:
     if len(preview) > 48:
         preview = preview[:48] + "…"
     return f"[{dt:12}] {d['id']:26} {preview}"
+
+
+# 一覧 (list/query) の既定射影。分類・絞り込みに要る項目だけに絞り、preview も
+# 短縮して、コーパス規模に比例した巨大な JSON が stdout に流れるのを防ぐ。
+# 完全な dict が要るときは各コマンドの --full か、個別の `get <id>` で取る。
+_LIST_PREVIEW_CHARS = 200
+
+
+def _slim_doc(d: dict) -> dict:
+    # 分類・報告に要る軽量フィールド (要素数 stats・出力先 result_path を含む) は残し、
+    # かさむ metadata・content_hash・source_abspath・timestamp と 600 字 preview を落とす。
+    preview = d.get("preview") or ""
+    if len(preview) > _LIST_PREVIEW_CHARS:
+        preview = preview[:_LIST_PREVIEW_CHARS] + "…"
+    return {
+        "id": d["id"],
+        "source": d.get("source"),
+        "file_type": d.get("file_type"),
+        "doctype": d.get("doctype"),
+        "stats": d.get("stats", {}),
+        "result_path": d.get("result_path"),
+        "preview": preview,
+    }
+
+
+def _project(docs: list[dict], full: bool) -> list[dict]:
+    return docs if full else [_slim_doc(d) for d in docs]
 
 
 # ── サブコマンド実装 ─────────────────────────────────────────
@@ -142,13 +174,26 @@ def cmd_get(args):
 
 def cmd_text(args):
     lib = _load(args)
-    doc = lib.extract_text(args.id, max_chars=args.max_chars)
-    _emit(doc, args.json, lambda o: print(o["text"]))
+    # --max-chars 0 は「全文」の明示指定。既定は上限つきで巨大文書の全文直流を防ぐ。
+    max_chars = None if args.max_chars == 0 else args.max_chars
+    doc = lib.extract_text(args.id, max_chars=max_chars, offset=args.offset)
+
+    def human(o):
+        print(o["text"])
+        if o["truncated"]:
+            print(
+                f"\n… [{o['offset']}–{o['offset'] + o['returned_chars']} / "
+                f"全 {o['total_chars']} 字]。続きは --offset {o['next_offset']}、"
+                f"全文は --max-chars 0",
+                file=sys.stderr,
+            )
+
+    _emit(doc, args.json, human)
 
 
 def cmd_list(args):
     lib = _load(args)
-    docs = lib.documents
+    docs = _project(lib.documents, args.full)
     _emit(
         docs,
         args.json,
@@ -162,7 +207,7 @@ def cmd_list(args):
 
 def cmd_query(args):
     lib = _load(args)
-    docs = lib.query(doctype=args.doctype, text=args.text)
+    docs = _project(lib.query(doctype=args.doctype, text=args.text), args.full)
     _emit(
         docs,
         args.json,
@@ -185,14 +230,37 @@ def cmd_stats(args):
     _emit(s, args.json, human)
 
 
+def _dump_or_refuse(data: dict, output: str | None, to_stdout: bool, summary: str, cmd: str) -> None:
+    """全体ダンプ系 (export) の出力先を捌く。
+
+    ファイル (`-o`) 指定があればそこへ。無い場合、**非対話実行で `--stdout` も
+    無ければ拒否**する — ストア全体を標準出力へ直流すると呼び出し側 (LLM/
+    エージェント) のコンテキストを一気に圧迫するため。対話端末や `--stdout`
+    明示のときだけ標準出力へ出す。
+    """
+    if output:
+        Path(output).write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"書き出しました: {output} ({summary})")
+        return
+    interactive = bool(getattr(sys.stdout, "isatty", lambda: False)())
+    if not interactive and not to_stdout:
+        print(
+            f"[{cmd}] {summary} を標準出力に全出力するとコンテキストを圧迫します。"
+            f"-o <ファイル> に書き出すか、全出力を強制するなら --stdout を付けてください。",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    print(json.dumps(data, ensure_ascii=False, indent=2 if _PRETTY else None))
+
+
 def cmd_export(args):
     lib = _load(args)
     data = lib.export()
-    if args.output:
-        Path(args.output).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"書き出しました: {args.output} ({len(data['documents'])} 件)")
-    else:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+    _dump_or_refuse(
+        data, args.output, args.stdout, f"{len(data['documents'])} 件の文書", "export"
+    )
 
 
 def cmd_remove(args):
@@ -283,11 +351,26 @@ def cmd_fact_add(args):
     _emit(item, args.json, lambda o: print(f"追加しました: {o['id']} [{o['type']}] <- {o['doc_id']}"))
 
 
+# 一覧での evidence (原文抜粋) の既定表示上限。原文はファクト件数ぶん積み上がるため
+# 一覧では短縮し、全文が要るときは --full か facts-export で取る。
+_FACT_EVIDENCE_CHARS = 200
+
+
+def _slim_fact(it: dict) -> dict:
+    ev = it.get("evidence")
+    if isinstance(ev, str) and len(ev) > _FACT_EVIDENCE_CHARS:
+        it = dict(it)
+        it["evidence"] = ev[:_FACT_EVIDENCE_CHARS] + "…"
+        it["evidence_truncated"] = True
+    return it
+
+
 def cmd_facts(args):
     fs = _load_facts(args)
     items = fs.query(doc_id=args.doc, type=args.type, text=args.text)
+    payload = items if args.full else [_slim_fact(it) for it in items]
     _emit(
-        items,
+        payload,
         args.json,
         lambda o: (
             print(f"ファクト {len(o)} 件:") or [print("  " + _fact_line(it)) for it in o]
@@ -322,13 +405,9 @@ def cmd_facts_stats(args):
 def cmd_facts_export(args):
     fs = _load_facts(args)
     data = fs.export()
-    if args.output:
-        Path(args.output).write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        print(f"書き出しました: {args.output} ({len(data['items'])} 件)")
-    else:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
+    _dump_or_refuse(
+        data, args.output, args.stdout, f"{len(data['items'])} 件のファクト", "facts-export"
+    )
 
 
 def cmd_item_types(args):
@@ -420,6 +499,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", default=argparse.SUPPRESS, help="機械可読な JSON で出力"
     )
     common.add_argument(
+        "--pretty",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="--json を整形して出力 (既定はコンパクト。目視確認用)",
+    )
+    common.add_argument(
         "--facts", default=argparse.SUPPRESS, help="ファクト集約 JSON の保存先 (既定 store/facts.json)"
     )
     common.add_argument(
@@ -466,20 +551,47 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = add("text", "本文テキストのみを出力 (座標等を除いた軽量ビュー)")
     sp.add_argument("id")
-    sp.add_argument("--max-chars", type=int, help="出力する最大文字数 (省略時は全文)")
+    sp.add_argument(
+        "--max-chars",
+        type=int,
+        default=20000,
+        help="出力する最大文字数 (既定 20000。0 で全文。巨大文書の全文直流を防ぐ)",
+    )
+    sp.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="読み出し開始位置 (既定 0)。前回の next_offset を渡して続きをページングする",
+    )
     sp.set_defaults(func=cmd_text)
 
-    add("list", "全文書を一覧").set_defaults(func=cmd_list)
+    sp = add("list", "全文書を一覧 (既定はスリム: id/source/doctype/短縮 preview)")
+    sp.add_argument(
+        "--full",
+        action="store_true",
+        help="metadata・パス等を含む完全な dict を出力 (既定はスリム射影)",
+    )
+    sp.set_defaults(func=cmd_list)
 
     sp = add("query", "条件で絞り込み")
     sp.add_argument("--doctype")
     sp.add_argument("--text", help="ソース名・文書種別・抜粋・メタデータへの部分一致")
+    sp.add_argument(
+        "--full",
+        action="store_true",
+        help="metadata・パス等を含む完全な dict を出力 (既定はスリム射影)",
+    )
     sp.set_defaults(func=cmd_query)
 
     add("stats", "文書種別別の集計").set_defaults(func=cmd_stats)
 
     sp = add("export", "集約 JSON 全体を出力")
-    sp.add_argument("-o", "--output", help="書き出し先ファイル (省略時は標準出力)")
+    sp.add_argument("-o", "--output", help="書き出し先ファイル (推奨。省略時は要 --stdout)")
+    sp.add_argument(
+        "--stdout",
+        action="store_true",
+        help="-o 省略時でも標準出力へ全出力する (非対話では既定で拒否される)",
+    )
     sp.set_defaults(func=cmd_export)
 
     sp = add("remove", "文書を削除")
@@ -519,6 +631,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--doc", help="文書 ID で絞る")
     sp.add_argument("--type", help="種別で絞る")
     sp.add_argument("--text", help="本文・根拠・キーワードへの部分一致")
+    sp.add_argument(
+        "--full",
+        action="store_true",
+        help="evidence (原文) を短縮せず全文出力する (既定は 200 字で短縮)",
+    )
     sp.set_defaults(func=cmd_facts)
 
     sp = add("fact-remove", "ファクトを削除")
@@ -528,7 +645,12 @@ def build_parser() -> argparse.ArgumentParser:
     add("facts-stats", "ファクトの種別別・文書別の集計").set_defaults(func=cmd_facts_stats)
 
     sp = add("facts-export", "ファクト集約 JSON 全体を出力")
-    sp.add_argument("-o", "--output", help="書き出し先ファイル (省略時は標準出力)")
+    sp.add_argument("-o", "--output", help="書き出し先ファイル (推奨。省略時は要 --stdout)")
+    sp.add_argument(
+        "--stdout",
+        action="store_true",
+        help="-o 省略時でも標準出力へ全出力する (非対話では既定で拒否される)",
+    )
     sp.set_defaults(func=cmd_facts_export)
 
     sp = add("item-types", "ファクト種別の表示・追加・削除")
@@ -556,6 +678,8 @@ def main(argv: list[str] | None = None) -> int:
     args.facts = getattr(args, "facts", str(_paths.facts_path()))
     args.item_types_file = getattr(args, "item_types_file", str(_paths.item_types_path()))
     args.json = getattr(args, "json", False)
+    global _PRETTY
+    _PRETTY = getattr(args, "pretty", False)
     # docextract から引き継いだ相関 ID (環境変数 or --run-id) で監査ログを残す。
     # これで docextract→docagent の一連の処理を同じ run_id で再構成できる。
     log = _obs.open_run("docagent.cli", getattr(args, "run_id", None))
