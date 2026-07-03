@@ -254,3 +254,56 @@ def test_json_summary_without_quiet_appends_after_progress(tmp_path, make_docx, 
     assert "[OK]" in out
     rec = json.loads(out.splitlines()[-1])  # 最終行がサマリ
     assert rec["event"] == "summary"
+
+
+# --------------------------------------------------------------------------
+# pywin32 (Office COM) 未導入時の早期停止 — ファイル数だけ同じ [NG] を出さない
+# --------------------------------------------------------------------------
+def test_pywin32_missing_aborts_once_for_legacy(tmp_path, monkeypatch, capsys):
+    # pywin32 が無い状況を再現。旧形式 (.doc/.xls) は拡張子だけで COM 必須と判る。
+    monkeypatch.setattr("docextract.cli.win32com_available", lambda: False)
+    for name in ("a.doc", "b.doc", "c.xls"):
+        (tmp_path / name).write_bytes(b"legacy")
+
+    rc = main([str(tmp_path), "-o", str(tmp_path / "out")])
+    assert rc == 1
+    err = capsys.readouterr().err
+    # ファイル数 (3件) 分ではなく、[NG] は 1 回だけ
+    assert err.count("[NG]") == 1
+    assert "pywin32" in err
+    assert "旧形式/保護文書 3 件" in err
+    # 導入コマンドを案内する。部分破損 (import 不可だが pip 上は導入済み) でも
+    # 直せるよう --force-reinstall 付きで案内する。
+    assert "pip install" in err
+    assert "--force-reinstall" in err
+
+
+def test_pywin32_missing_does_not_abort_without_legacy(tmp_path, make_docx, monkeypatch, capsys):
+    # pywin32 が無くても、COM を要さない OOXML/PDF だけなら通常処理する (過剰停止しない)
+    monkeypatch.setattr("docextract.cli.win32com_available", lambda: False)
+    make_docx("a.docx", paragraphs=[("hi", None)])
+
+    rc = main([str(tmp_path / "a.docx"), "-o", str(tmp_path / "out")])
+    assert rc == 0
+    out = capsys.readouterr()
+    assert "[OK]" in out.out
+    assert "pywin32" not in out.err
+
+
+def test_pywin32_missing_abort_json_summary(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("docextract.cli.win32com_available", lambda: False)
+    (tmp_path / "a.doc").write_bytes(b"legacy")
+    (tmp_path / "b.ppt").write_bytes(b"legacy")
+
+    rc = main([str(tmp_path), "-q", "--json-summary", "-o", str(tmp_path / "out")])
+    assert rc == 1
+    rec = json.loads(capsys.readouterr().out.strip())
+    assert rec["event"] == "summary"
+    assert rec["aborted"] is True
+    assert rec["reason"] == "pywin32_unavailable"
+    assert rec["succeeded"] == 0
+    assert rec["failed"] == 2
+    assert {f["source"] for f in rec["failures"]} == {
+        str(tmp_path / "a.doc"),
+        str(tmp_path / "b.ppt"),
+    }

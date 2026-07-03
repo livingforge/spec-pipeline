@@ -35,6 +35,20 @@ from .docx_extractor import extract_docx
 from .pptx_extractor import extract_pptx
 from .xlsx_extractor import extract_xlsx
 
+# COM 変換を必ず要する旧 Office バイナリ形式。拡張子だけで判定できるため、
+# CLI の事前チェック (pywin32 未導入の早期検知) で IRM スキャン無しに拾える。
+LEGACY_EXTENSIONS = frozenset({".xls", ".doc", ".ppt"})
+
+# pywin32 未導入時に案内する具体的な導入コマンド (共有 venv 前提と素の pip の両方)。
+# --force-reinstall を付けるのは、win32com が import できない状態には「完全に未導入」
+# だけでなく「pip 上は導入済みだが DLL (pywin32_system32) 欠落等で import 失敗」の
+# **部分破損**も含まれ、後者では素の install が no-op になって直らないため。
+# --force-reinstall はクリーンな環境でも 1 回入れ直すだけで無害で、両状態を確実に直せる。
+PYWIN32_INSTALL_HINT = (
+    "uv pip install --python .venv/Scripts/python.exe pywin32 --force-reinstall"
+    " (または pip install --force-reinstall pywin32)"
+)
+
 
 class OfficeUnavailableError(RuntimeError):
     """COM 変換/復号に必要な Microsoft Office / pywin32 が使えないことを表す。
@@ -44,28 +58,55 @@ class OfficeUnavailableError(RuntimeError):
     """
 
 
+class Win32ComUnavailableError(OfficeUnavailableError):
+    """pywin32 (win32com / pythoncom) 自体が import できないことを表す。
+
+    Office アプリ未導入や COM 変換失敗 (:class:`OfficeUnavailableError` の他の
+    ケース) と違い、これは**実行環境の前提条件**で、対象文書に依らず同一に起きる。
+    バッチ処理側 (CLI) がこの型を捕捉して「ファイル数だけ同じエラーを繰り返す」
+    のを避け、1 回だけ FB して早期に停止できるよう、専用の型に切り出している。
+    """
+
+
+def win32com_available() -> bool:
+    """pywin32 (pythoncom / win32com.client) が import できるかを返す。
+
+    副作用なく可否だけを判定する (COM の初期化やアプリ起動はしない)。CLI が
+    バッチ開始前に一度だけ呼び、旧形式/IRM 文書があるのに pywin32 が無い場合を
+    早期に検知するために使う。
+    """
+    try:
+        import pythoncom  # noqa: F401
+        import win32com.client  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def _office_required_error(
     ext: str, app: str, action: str, cause: object | None = None
-) -> OfficeUnavailableError:
-    """Office / pywin32 そのものが利用できないときのエラー。
+) -> Win32ComUnavailableError:
+    """pywin32 (win32com) が import できないときのエラー。
 
     pywin32 は再現性固定の ``requirements.lock`` に含めない方針のため bootstrap
     では入らない。手当ての具体コマンドまで案内し、失敗ログを読んで手動で調べ
     直す手間を省く。COM が動いた後の変換失敗はこの経路ではなく
     ``_com_conversion_error`` を使う (Office/pywin32 は検出済みだと切り分ける)。
+
+    実行環境の前提条件 (対象文書に依らず同一に起きる) なので、専用型
+    :class:`Win32ComUnavailableError` を返し、CLI 側が早期停止に使えるようにする。
     """
     msg = (
         f"{action}には Microsoft Office ({app}) の COM 自動化が必要です。"
         f"Windows 上でインストール済みの Microsoft {app} を COM で操作します。"
         f"Windows で Microsoft {app} が導入済みで、pywin32 が利用可能か確認して"
         f"ください。pywin32 は自動導入されないため、未導入なら "
-        f"`uv pip install --python .venv/Scripts/python.exe pywin32` (または "
-        f"`pip install pywin32`) で追加してから再実行してください。利用できない"
+        f"`{PYWIN32_INSTALL_HINT}` で追加してから再実行してください。利用できない"
         f"環境では、あらかじめ復号・新形式変換した .docx/.xlsx/.pptx を渡してください。"
     )
     if cause is not None:
         msg += f" (原因: {cause})"
-    return OfficeUnavailableError(msg)
+    return Win32ComUnavailableError(msg)
 
 
 def _com_conversion_error(
@@ -313,6 +354,10 @@ def extract_decrypting(
 
 __all__ = [
     "OfficeUnavailableError",
+    "Win32ComUnavailableError",
+    "LEGACY_EXTENSIONS",
+    "PYWIN32_INSTALL_HINT",
+    "win32com_available",
     "extract_xls",
     "extract_doc",
     "extract_ppt",

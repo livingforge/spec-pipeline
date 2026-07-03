@@ -16,7 +16,12 @@ import json
 import sys
 from pathlib import Path
 
-from . import SUPPORTED_EXTENSIONS, extract, manifest, obs, paths
+from . import SUPPORTED_EXTENSIONS, extract, manifest, obs, paths, sensitivity
+from .extractors import (
+    LEGACY_EXTENSIONS,
+    PYWIN32_INSTALL_HINT,
+    win32com_available,
+)
 
 
 def _scan_dir(directory: Path, recursive: bool) -> list[Path]:
@@ -33,6 +38,31 @@ def _scan_dir(directory: Path, recursive: bool) -> list[Path]:
         if p.is_file() and p.suffix.lower() in supported and not p.name.startswith("~$")
     ]
     return sorted(found)
+
+
+def _com_required_targets(files: list[Path]) -> list[Path]:
+    """Office COM (pywin32) を要する対象を、収集済みファイルから抽出する。
+
+    旧形式 (.xls/.doc/.ppt) は拡張子だけで確定する。OOXML でも IRM/RMS 保護
+    (秘密度ラベルによる暗号化) は COM 復号が要るため、拡張子で拾えない分を
+    :func:`sensitivity.detect_protection` で補う。パスワード暗号化
+    (``kind == "encrypted"``) は COM 対象外 (``extract`` が手前で弾く) ため含めない。
+
+    この関数は pywin32 が無いと判明した後の早期停止判定でだけ呼ぶ (健全な実行では
+    走らせない)。IRM 判定はファイルのヘッダ/マーカーだけを読む軽い処理。
+    """
+    blocked: list[Path] = []
+    for path in files:
+        if path.suffix.lower() in LEGACY_EXTENSIONS:
+            blocked.append(path)
+            continue
+        try:
+            protection = sensitivity.detect_protection(path)
+        except Exception:
+            protection = None
+        if protection is not None and protection.get("kind") == "irm":
+            blocked.append(path)
+    return blocked
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -197,6 +227,66 @@ def main(argv: list[str] | None = None) -> int:
     run_id = log.run_id
     log.event("run.start", targets=len(files))
     info(f"[run] run_id={run_id} 対象={len(files)} 件")
+
+    # pywin32 (Office COM) の前提チェック。旧形式 (.xls/.doc/.ppt) と IRM/RMS 保護
+    # 文書は Office COM 変換を要し、pywin32 が無ければ**対象ごとに同一のエラー**に
+    # なる (実行環境の前提条件で、文書に依らず同じ)。ファイル数だけ [NG] を繰り返す
+    # のを避けるため、処理を始める前に一度だけ検知して早期停止する (fail-closed。
+    # 該当文書を黙って欠落させたまま「成功」に見せない)。
+    if not win32com_available():
+        blocked = _com_required_targets(files)
+        if blocked:
+            names = "\n       ".join(str(p) for p in blocked[:10])
+            if len(blocked) > 10:
+                names += f"\n       ...他 {len(blocked) - 10} 件"
+            log.error(
+                "run.aborted",
+                reason="pywin32_unavailable",
+                blocked=len(blocked),
+                targets=len(files),
+                sources=[str(p) for p in blocked],
+            )
+            print(
+                f"[NG] pywin32 が未導入のため中止しました。\n"
+                f"     旧形式/保護文書 {len(blocked)} 件の解析には Office COM "
+                f"(pywin32) が必要です:\n       {names}\n"
+                f"     導入: {PYWIN32_INSTALL_HINT}\n"
+                f"     （利用できない環境では、あらかじめ .docx/.xlsx/.pptx へ"
+                f"変換・復号したコピーを渡してください） (run_id={run_id})",
+                file=sys.stderr,
+            )
+            info(
+                f"[done] run_id={run_id} 中止 ({len(files)} 件中 0 件処理)"
+                + (f" ログ={log.log_path}" if log.log_path else "")
+            )
+            if args.json_summary:
+                print(
+                    json.dumps(
+                        {
+                            "event": "summary",
+                            "run_id": run_id,
+                            "aborted": True,
+                            "reason": "pywin32_unavailable",
+                            "succeeded": 0,
+                            "failed": len(blocked),
+                            "output_dir": str(Path(args.output_dir)),
+                            "index": str(Path(args.output_dir) / "index.json"),
+                            "log_path": str(log.log_path) if log.log_path else None,
+                            "ids": [],
+                            "failures": [
+                                {
+                                    "source": str(p),
+                                    "error": "pywin32 (Office COM) が未導入",
+                                }
+                                for p in blocked
+                            ],
+                            "duplicates": [],
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+            return 1
+
     processed_ids: list[str] = []
     failures: list[dict[str, str]] = []
     for path in files:
