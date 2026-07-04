@@ -45,8 +45,13 @@ python specdb/diff.py --baselines       # ベースライン一覧
 プロジェクト側）は、各コマンドの先頭に `--root <データディレクトリ>` を付ける:
 
 ```
-python <スキル>/scripts/engine.py --root specdb-data
+python <スキル>/scripts/engine.py --root <データディレクトリ>
 ```
+
+`--root` を省略した場合はカレントディレクトリの `.specdb/`（`metamodel.yaml` を
+持つもの）を自動的にデータルートにし、それも無ければツールと同じディレクトリ
+（このサンプルデータ）にフォールバックする。プロジェクトのデータディレクトリを
+`.specdb` という名前で置けば `--root` の指定を省略できる。
 
 ## 文書種別の追加方法（コード改修なし）
 

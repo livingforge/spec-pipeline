@@ -245,3 +245,23 @@ def test_metamodel_cardinality_format_checked():
     s = build({"metamodel": bad,
                "items/entity/e.yaml": ITEMS_OK, "items/data-item/d.yaml": DATA_OK})
     assert_problem(s, "多重度 'abc' が不正", "cardinality のキーは from/to")
+
+
+def test_parse_root_defaults_to_conventional_dir(tmp_path, monkeypatch):
+    """--root 省略時は <cwd>/.specdb (metamodel.yaml があるもの) を優先し、
+    無ければツール同梱データ (ROOT) にフォールバックする。"""
+    from engine import DEFAULT_DATA_DIR, ROOT, parse_root
+
+    monkeypatch.chdir(tmp_path)
+    assert parse_root(["arg"]) == (ROOT, ["arg"])          # .specdb 不在 → フォールバック
+
+    spec = tmp_path / DEFAULT_DATA_DIR
+    spec.mkdir()
+    assert parse_root([]) == (ROOT, [])                    # metamodel.yaml 無し → 対象外
+    (spec / "metamodel.yaml").write_text("version: 1\n", encoding="utf-8")
+    assert parse_root(["arg"]) == (Path(DEFAULT_DATA_DIR), ["arg"])
+
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "metamodel.yaml").write_text("version: 1\n", encoding="utf-8")
+    assert parse_root(["--root", "other"]) == (Path("other"), [])  # --root は常に最優先

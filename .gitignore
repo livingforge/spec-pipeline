@@ -5,9 +5,11 @@
 # 公開したいものだけ明示的に許可する
 !/.claude/
 !/.github/
+!/.specdb/
 !/README.md
 !/.gitignore
 
 # 許可フォルダ内でも、これらは公開しない
 __pycache__/
 *.pyc
+/.specdb/out/

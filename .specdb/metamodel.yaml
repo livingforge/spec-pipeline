@@ -1,0 +1,124 @@
+# メタモデル — 配布物 (.claude / .github) の設計を仕様データとして表現する
+#
+# 正本は skill-src/ + agent-src/ + 本体パッケージと build_skill.py のビルド規則。
+# ここでは「何を・どの規則で・どこへ展開するか」という設計判断をデータ化する。
+# .github/ のファイル一覧そのものではなく、その"あるべき姿"の宣言。
+#
+# 出典 (source) は原則 scripts/build_skill.py の該当箇所を指す。
+
+version: 1
+
+item_types:
+
+  platform:
+    label: 展開先プラットフォーム
+    label_field: name
+    attributes:
+      name:         { kind: string, required: true, unique: true }
+      root_dir:     { kind: string, required: true, unique: true }   # ".github" 等
+      agent_suffix: { kind: string, required: true }                 # ".agent.md" 等
+      agent_layout: { kind: enum, values: [flat, nested], required: true }
+      description:  { kind: string }
+
+  skill:
+    label: スキル
+    label_field: name
+    attributes:
+      name:    { kind: string, required: true, unique: true }
+      src_dir: { kind: string, required: true, unique: true }
+
+  agent:
+    label: エージェント
+    label_field: name
+    attributes:
+      name:    { kind: string, required: true, unique: true }
+      src_dir: { kind: string, required: true, unique: true }
+
+  shared-fragment:
+    label: 共有フラグメント
+    label_field: name
+    warn_if_unreferenced: true   # どのエージェントからも include されなければ孤児警告
+    attributes:
+      name: { kind: string, required: true, unique: true }
+      path: { kind: string, required: true, unique: true }
+      description: { kind: string }
+
+  source-module:
+    label: ソースモジュール
+    label_field: name
+    warn_if_unreferenced: true   # どのスキルからも同梱も除外もされないモジュールは警告
+    attributes:
+      name:        { kind: string, required: true, unique: true }
+      path:        { kind: string, required: true }
+      description: { kind: string }
+
+  build-rule:
+    label: ビルド規則
+    label_field: statement
+    warn_if_unreferenced: true   # どの配布単位も従わない規則は孤児警告
+    attributes:
+      statement: { kind: string, required: true }
+
+  pack-meta:
+    label: パッケージメタ
+    label_field: name
+    attributes:
+      name:    { kind: string, required: true, unique: true }
+      src_dir: { kind: string, required: true }
+      files:   { kind: string }
+
+  distribution:
+    label: 配布物アーカイブ
+    label_field: name
+    attributes:
+      name: { kind: string, required: true, unique: true }
+      path: { kind: string, required: true, unique: true }
+
+relation_types:
+
+  deploys-to:
+    label: 展開する
+    from: [skill, agent, pack-meta]
+    to: platform
+    cardinality: { from: "1..*", to: "1..*" }  # どこにも展開されない配布単位 / 空のプラットフォームは error
+    attributes:
+      # プロジェクトルートからの展開先パス。同じ配布単位の中で重複禁止
+      out_path: { kind: string, required: true, unique: true }
+      note:     { kind: string }
+
+  bundles:
+    label: 同梱する
+    from: skill
+    to: source-module
+    embedded: { field: bundles, target_key: module }
+    attributes:
+      dest:    { kind: string, required: true, unique: true }  # スキルディレクトリ内の配置先
+      exclude: { kind: string }   # copytree の ignore パターン等の除外規則
+      note:    { kind: string }
+
+  excludes:
+    label: 同梱しない
+    from: skill
+    to: source-module
+    embedded: { field: excludes, target_key: module }
+    attributes:
+      reason: { kind: string, required: true }   # 除外は必ず理由つきで宣言する
+
+  includes:
+    label: 差し込む
+    from: agent
+    to: shared-fragment
+    ordered: true                # body.md 内の出現順
+    embedded: { field: includes }
+
+  governed-by:
+    label: 規則に従う
+    from: [skill, agent, distribution]
+    to: build-rule
+    embedded: { field: rules }
+
+  packages:
+    label: 収録する
+    from: distribution
+    to: platform
+    embedded: { field: packages }

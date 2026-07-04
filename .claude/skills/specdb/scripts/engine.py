@@ -24,6 +24,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent
 
+# --root 省略時に探す規約上のデータディレクトリ（カレントディレクトリ基準）。
+# 見つからなければツール同梱データ (ROOT) にフォールバックする。
+DEFAULT_DATA_DIR = ".specdb"
+
 CORE_KEYS = {"id", "status", "source"}
 STATUSES = ("draft", "review", "approved", "deprecated")
 
@@ -421,7 +425,10 @@ def _records(path: Path) -> list[dict]:
 
 def parse_root(args: list[str], default: Path = ROOT) -> tuple[Path, list[str]]:
     """先頭の --root <dir> を取り出し (データルート, 残りの引数) を返す。
-    generate.py / diff.py も共用する。"""
+    generate.py / diff.py も共用する。
+
+    --root 省略時はカレントディレクトリの .specdb/ (metamodel.yaml を持つもの)
+    を優先し、無ければ default (ツール同梱データ) を使う。"""
     if args and args[0] == "--root":
         if len(args) < 2:
             sys.exit("--root にはデータディレクトリを指定する。")
@@ -429,6 +436,9 @@ def parse_root(args: list[str], default: Path = ROOT) -> tuple[Path, list[str]]:
         if not (root / "metamodel.yaml").is_file():
             sys.exit(f"{root} に metamodel.yaml が無い。仕様データのルートを指定する。")
         return root, args[2:]
+    conventional = Path(DEFAULT_DATA_DIR)
+    if (conventional / "metamodel.yaml").is_file():
+        return conventional, args
     return default, args
 
 

@@ -1,0 +1,23 @@
+# エージェント — agent-src/ の 3 エージェント。includes は body.md 内の
+# {{include:...}} の出現順（ordered な関係）。
+
+- id: agent-corpus-qa
+  status: approved
+  name: corpus-qa
+  src_dir: agent-src/corpus-qa
+  includes: [frag-setup-gate, frag-failure-policy]
+  rules: [rule-md-assembly, rule-include-resolution, rule-skill-dir-subst, rule-agent-layout]
+
+- id: agent-doc-indexer
+  status: approved
+  name: doc-indexer
+  src_dir: agent-src/doc-indexer
+  includes: [frag-setup-gate, frag-failure-policy]
+  rules: [rule-md-assembly, rule-include-resolution, rule-skill-dir-subst, rule-agent-layout]
+
+- id: agent-spec-extractor
+  status: approved
+  name: spec-extractor
+  src_dir: agent-src/spec-extractor
+  includes: [frag-setup-gate, frag-spec-criteria, frag-failure-policy]
+  rules: [rule-md-assembly, rule-include-resolution, rule-skill-dir-subst, rule-agent-layout]

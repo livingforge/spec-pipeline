@@ -32,24 +32,27 @@ pip install PyYAML Jinja2
 雛形 `.claude/skills/specdb/scaffold/` をプロジェクトへコピーして開始する:
 
 ```bash
-cp -r .claude/skills/specdb/scaffold specdb-data     # 名前は任意
+cp -r .claude/skills/specdb/scaffold .specdb     # .specdb なら --root の指定を省略できる
 ```
 
 scaffold にはサンプルのメタモデル（データ項目・エンティティ・業務ルール・画面）、
 アイテム、文書定義、Jinja2 テンプレートが入っている。まず
-`specdb-data/README.md` を読み、メタモデルとアイテムをプロジェクトの語彙に
+`.specdb/README.md` を読み、メタモデルとアイテムをプロジェクトの語彙に
 置き換える。サンプルの items/・relations/ は削除して構わない。
 
 ## 使い方
 
 ```bash
-python .claude/skills/specdb/scripts/engine.py   --root specdb-data              # 検証レポート + 統計
-python .claude/skills/specdb/scripts/generate.py --root specdb-data              # 全文書を out/ に生成
-python .claude/skills/specdb/scripts/generate.py --root specdb-data table-spec   # 指定文書だけ生成
-python .claude/skills/specdb/scripts/diff.py     --root specdb-data baseline/R1.0  # ベースライン差分
-python .claude/skills/specdb/scripts/diff.py     --root specdb-data --baselines    # ベースライン一覧
+python .claude/skills/specdb/scripts/engine.py                    # 検証レポート + 統計
+python .claude/skills/specdb/scripts/generate.py                  # 全文書を out/ に生成
+python .claude/skills/specdb/scripts/generate.py table-spec       # 指定文書だけ生成
+python .claude/skills/specdb/scripts/diff.py     baseline/R1.0    # ベースライン差分
+python .claude/skills/specdb/scripts/diff.py     --baselines      # ベースライン一覧
 ```
 
+- `--root` 省略時はカレントディレクトリの `.specdb/`（`metamodel.yaml` を持つもの）が
+  データルートになる。無ければツール同梱のサンプルデータにフォールバックするので、
+  別名・別場所のデータは `--root <dir>` を先頭引数で明示する
 - ベースライン = Git タグ（`git tag baseline/R1.0`）。データディレクトリが
   Git 管理されていることが前提
 - 生成物（`out/`）はビューなので直接編集しない。仕様変更は items/relations を
