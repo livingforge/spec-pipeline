@@ -1,0 +1,9 @@
+# 機械生成（specdb pack build）。正本は packs-src/jp-sier-std/items/doc-type/。直接編集しない。
+{% if item.attrs.get('abstract') %}abstract: true
+{% endif %}title: {{ item.attrs.title }}
+output: {{ item.attrs.output }}
+template: {{ item.attrs.template }}
+{% if item.attrs.get('doc_no') %}doc_no: {{ item.attrs.doc_no|tojson }}
+{% endif %}{% if item.attrs.get('required_params') %}params:
+  required: {{ item.attrs.required_params|tojson }}
+{% endif %}

@@ -524,9 +524,11 @@ style-part として台帳化する（実体二重管理をしない）。
 回帰テスト test_pack_selfhost.py が `pack build` の出力と配布物の data-equal
 （no-drift）を固定する。決定事項 3（specdb 正本化）はこれで実装済みとなった。
 
-補足（リポジトリ規約）: 正本 `packs-src/` は他の src（specdb/*.py 等）と同じく
-Git 追跡外で、ビルド成果物側（.claude / .github の配布パック）が追跡される。
-パック正本自体を版管理したい場合は追跡対象への移設が別途必要（未対応）。
+補足（リポジトリ規約）: 正本 `packs-src/` は他の src と同じく src 位置では
+Git 追跡外だが、`.py` が `scripts/` に同梱されて実質追跡されるのと同様に、
+build_skill が `packs-src/` を `scripts/packs-src/`（生成物 `out/` は除く）へ
+同梱して版管理する。解決には使われない（消費側は `packs/` のみ解決）ため
+inert で、自己正本化の回帰テストは同梱先でも実行される。
 
 ## 11. レビュー決定事項（2026-07-05 — 全論点決着済み）
 

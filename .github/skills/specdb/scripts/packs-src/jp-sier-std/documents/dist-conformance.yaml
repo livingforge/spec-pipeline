@@ -1,0 +1,3 @@
+# conformance-rule 群を集約して dist の conformance/rules.yaml を出力する
+output: conformance/rules.yaml
+template: dist-conformance.yaml.j2

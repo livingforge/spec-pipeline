@@ -1,0 +1,39 @@
+# 標準文書カタログの正本 — ここから dist の documents/*.yaml が生成される。
+- id: dt-basic-design
+  name: basic-design
+  title: システム基本設計書（{system_name}）
+  output: 基本設計書_{system_name}.html
+  template: basic-design.html.j2
+  abstract: true
+  doc_no: { pattern: 'SD-[A-Z]{2,4}-\d{3}' }
+  required_params: [system_name, doc_no, version, preface.purpose, preface.scope]
+  order: 1
+  status: approved
+  source:
+    doc: specdb/packs/jp-sier-std/documents/basic-design.yaml
+    location: { section: 文書定義 }
+    evidence: システム基本設計書（Excel 風 HTML）— 標準文書の雛形（abstract）
+
+- id: dt-table-spec
+  name: table-spec
+  title: テーブル定義書
+  output: テーブル定義書.md
+  template: table-spec.md.j2
+  order: 2
+  status: approved
+  source:
+    doc: specdb/packs/jp-sier-std/documents/table-spec.yaml
+    location: { section: 文書定義 }
+    evidence: テーブル定義書 — 全エンティティの列定義を列挙する台帳（非 abstract）
+
+- id: dt-screen-spec
+  name: screen-spec
+  title: 画面仕様書
+  output: 画面仕様書.md
+  template: screen-spec.md.j2
+  order: 3
+  status: approved
+  source:
+    doc: specdb/packs/jp-sier-std/documents/screen-spec.yaml
+    location: { section: 文書定義 }
+    evidence: 画面仕様書 — 全画面の表示項目を列挙する台帳（非 abstract）

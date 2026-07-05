@@ -1,0 +1,5 @@
+# 機械生成（specdb pack build）。正本は packs-src/jp-sier-std/items/conformance-rule/。直接編集しない。
+{% set rules = store.items_of('conformance-rule')|sort(attribute='attrs.order') %}require_documents: {{ (rules|selectattr('attrs.rule_kind', 'equalto', 'require-documents')|map(attribute='attrs.documents')|sum(start=[]))|tojson }}
+attribute_rules:
+{% for r in rules if r.attrs.rule_kind == 'attribute-rule' %}  - {{ r.attrs.rule|tojson }}
+{% endfor %}status_rules: {{ (rules|selectattr('attrs.rule_kind', 'equalto', 'status-rule')|map(attribute='attrs.settings')|first)|tojson }}

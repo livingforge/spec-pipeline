@@ -1,0 +1,53 @@
+# jp-sier-std パック開発リポジトリ — パック自体を specdb で正本化する（§3.1）
+#
+# これは extends を持たないスタンドアロンな specdb 正本。ここから
+# `specdb pack build` が配布物（documents/*.yaml・conformance/rules.yaml）を
+# 生成し、消費側パック specdb/packs/jp-sier-std/ の該当ファイルを更新する。
+# パックの identity（pack.yaml）・ドメインメタモデル（metamodel/core.yaml）・
+# テンプレート（templates/*.j2）は「コードと同格の設定/ファイル」として
+# 配布物側で直接オーサリングし、ここでは style-part として台帳化だけする。
+version: 1
+
+item_types:
+
+  doc-type:
+    label: 文書種別
+    label_field: title
+    id_prefix: dt-
+    attributes:
+      name:            { kind: string, required: true, unique: true }  # dist ファイル stem
+      title:           { kind: string, required: true }
+      output:          { kind: string, required: true }
+      template:        { kind: string, required: true }
+      abstract:        { kind: bool }
+      doc_no:          { kind: map }                 # { pattern: 正規表現 }
+      required_params: { kind: list }                # 実体化時の必須パラメータ
+      order:           { kind: int, required: true } # dist 列挙の安定順
+
+  conformance-rule:
+    label: 準拠規則
+    label_field: summary
+    id_prefix: cr-
+    attributes:
+      summary:      { kind: string, required: true }
+      rule_kind:    { kind: enum, values: [require-documents, attribute-rule, status-rule], required: true }
+      documents:    { kind: list }   # require-documents 用
+      rule:         { kind: map }    # attribute-rule 用 { type, attribute, when_status, level }
+      settings:     { kind: map }    # status-rule 用 { baseline_requires: ... }
+      order:        { kind: int, required: true }
+
+  style-part:
+    label: 様式部品
+    label_field: name
+    id_prefix: sp-
+    attributes:
+      name: { kind: string, required: true, unique: true }
+      file: { kind: string, required: true, unique: true }   # templates/ 配下の実体
+      role: { kind: enum, values: [house-style, document], required: true }
+
+relation_types:
+
+  renders:                         # 文書種別 → 使用する様式部品（トレース）
+    label: 使用する
+    from: doc-type
+    to: style-part

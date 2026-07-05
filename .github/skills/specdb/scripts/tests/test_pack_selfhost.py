@@ -6,6 +6,7 @@
 配布物 = specdb/packs/jp-sier-std/{documents,conformance}（生成ビュー）。
 pack build を temp へ流し、配布物と data-equal であることを検証する（no-drift）。
 """
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -21,10 +22,17 @@ ROOT = Path(__file__).resolve().parents[1]
 AUTHORING = ROOT / "packs-src" / "jp-sier-std"
 DIST = ROOT / "packs" / "jp-sier-std"
 
-# パック正本 (packs-src) は開発リポジトリの src。配布スキルには同梱しないため、
-# 展開先で実行されたときはこのモジュールをスキップする。
+# パック正本 (packs-src) が無い環境（万一同梱されていない配布等）ではスキップ。
 pytestmark = pytest.mark.skipif(
-    not AUTHORING.is_dir(), reason="pack authoring source (packs-src) は src 専用")
+    not AUTHORING.is_dir(), reason="pack authoring source (packs-src) が無い")
+
+
+def _authoring_copy() -> Path:
+    """正本を temp へ複製して返す（generate が out/ を書くため、追跡ツリーを汚さない）。"""
+    tmp = Path(tempfile.mkdtemp(prefix="pack-authoring-"))
+    dst = tmp / "jp-sier-std"
+    shutil.copytree(AUTHORING, dst, ignore=shutil.ignore_patterns("out", "__pycache__"))
+    return dst
 
 
 def test_authoring_specdb_is_valid():
@@ -40,7 +48,7 @@ def test_build_reproduces_committed_dist():
     tmp = Path(tempfile.mkdtemp(prefix="pack-build-"))
     into = tmp / "dist"
     into.mkdir()
-    rc = packmod._cmd_build(AUTHORING, into)
+    rc = packmod._cmd_build(_authoring_copy(), into)
     assert rc == 0
     targets = ["documents/basic-design.yaml", "documents/table-spec.yaml",
                "documents/screen-spec.yaml", "conformance/rules.yaml"]

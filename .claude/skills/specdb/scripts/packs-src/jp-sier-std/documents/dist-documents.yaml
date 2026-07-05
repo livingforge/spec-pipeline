@@ -1,0 +1,4 @@
+# doc-type 1 件ごとに dist の documents/<name>.yaml を出力する（foreach）
+foreach: doc-type
+output: documents/{name}.yaml
+template: dist-document.yaml.j2
