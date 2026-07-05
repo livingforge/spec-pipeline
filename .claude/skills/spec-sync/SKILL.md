@@ -1,6 +1,6 @@
 ---
 name: spec-sync
-description: Sync implementation changes into .specdb, the project's spec-as-data single source of truth - let sync_check.py enumerate drift candidates (changed files vs spec items, inventory, source freshness), judge which are spec changes, apply them via a mutate.py plan (auto-numbered IDs, status review enforced, transactional rollback), pass machine validation (error 0), regenerate the views, and report the pending review list from history.py. Use after implementing/changing/removing a feature, or when asked to "specdb を更新 / 仕様データに反映 / 設計データを同期 / spec-sync". Part of this project's Definition of Done (CLAUDE.md).
+description: Sync implementation changes into .specdb, the project's spec-as-data single source of truth - let sync_check.py enumerate drift candidates (changed files vs spec items, inventory, source freshness), judge which are spec changes, apply them via a mutate.py plan (auto-numbered IDs, status review enforced, transactional rollback), pass machine validation (error 0), regenerate the views, and report the pending review list from history.py. Use after implementing/changing/removing a feature, or when asked to "specdb を更新 / 仕様データに反映 / 設計データを同期 / spec-sync". Run it as the final step of implementation work so the spec data never drifts behind the code.
 license: MIT
 ---
 
@@ -8,7 +8,7 @@ license: MIT
 
 このプロジェクトの設計データの正本は `.specdb/`（items/ + relations/、YAML）である。
 実装だけ進んで正本が古くなるのを防ぐため、機能の追加・変更・廃止のあとに
-この手順で `.specdb` を更新する。CLAUDE.md の「完了の定義」の一部。
+この手順で `.specdb` を更新する（実装作業の締めくくりに実行する）。
 
 手順は可能な限り機械化されている。判断が要るのは
 **「この実装変更は仕様の変化か」の判定と、説明文・出典の文章化だけ**で、
