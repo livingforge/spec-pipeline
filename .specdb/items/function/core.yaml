@@ -128,10 +128,8 @@
   name: 設計書の自動生成
   category: 仕様管理
   description: >-
-    文書定義 (documents/) と Jinja2 テンプレートから、検証済み仕様データを
-    Markdown / Excel 風 HTML の設計書として生成する。文書種別の追加に
-    コード改修は不要。
-  status: approved
+    文書定義 (documents/) と Jinja2 テンプレートから、検証済み仕様データを Markdown / Excel 風 HTML の設計書として生成する。文書種別の追加にコード改修は不要。foreach 宣言で 1 種別のアイテムごとに 1 ファイルを出力でき、出力先の副ディレクトリも自動作成する。
+  status: review
   source:
     doc: specdb/README.md
     location: { section: "文書種別の追加方法（コード改修なし）" }
@@ -309,10 +307,22 @@
   func_id: F-24
   name: 標準パック継承（様式の横断標準化）
   description: >-
-    metamodel.yaml の extends 宣言で標準パック（様式・文書カタログ・メタモデルのバージョン付き配布単位）を継承する。パック自身も extends でき「全社→事業部→プロジェクト」の単一親チェーンを構成する。実効メタモデルはチェーンをルートから重ねたマージ結果になり、engine はそれでデータを検証する。各層は下位をマージした結果に対し緩和禁止（追加・厳格化は自由、kind 変更・required 緩和・unique 除去・enum 拡張・多重度緩和・endpoint 削除・id_prefix 変更・予約名前空間の再宣言は error）に従い、準拠は推移的である。テンプレートは プロジェクト→近い層→遠い層 の順で多層検索され std/ プレフィックス + block 上書きで部分カスタマイズできる。conform コマンドが L1（メタモデル）+ L2（conformance/rules.yaml による必須文書・記載必須・ベースライン前提）+ pack.lock 照合を総合判定し、pack lock がチェーンの版・内容ハッシュを固定する。
+    metamodel.yaml の extends 宣言で標準パック（様式・文書カタログ・メタモデルのバージョン付き配布単位）を継承する。パック自身も extends でき「全社→事業部→プロジェクト」の単一親チェーンを構成する。実効メタモデルはチェーンをルートから重ねたマージ結果になり、engine はそれでデータを検証する。各層は下位をマージした結果に対し緩和禁止に従い準拠は推移的である。conform が L1（メタモデル）+ L2（必須文書・記載必須・ベースライン前提）+ pack.lock 照合を総合判定し、pack lock がチェーンの版・内容ハッシュを固定する。パック開発側では pack check（block 規約のリリースチェック）、pack build（正本 specdb からの配布物生成による自己正本化）、pack migrate（改版時の移行プラン適用）を提供する。
   category: 仕様管理
   status: review
   source:
     doc: specdb/README.md
     location: {section: 標準パック（プロジェクト横断の様式標準化 — Phase 1）}
     evidence: 設計書様式・文書カタログ・メタモデルをプロジェクト間で統一するための仕組み
+
+- id: fn-aggregate
+  func_id: F-25
+  name: プロジェクト横断集計
+  description: >-
+    標準パックを共有する複数プロジェクトの仕様データを横串で集計し、種別ごとの共通台帳（共通データ項目辞書・システム間IF台帳）と拡張列挙の全社集計を Markdown で出力する。同名アイテムの属性ゆらぎを要確認として指摘し、extensible enum の標準宣言に無い値は「その他」に丸めて元値の内訳を次期標準への昇格候補として掲出する。
+  category: 仕様管理
+  status: review
+  source:
+    doc: specdb/README.md
+    location: {section: 横断集計とパックのリリースチェック}
+    evidence: aggregate は標準パックを共有する複数プロジェクトを横串で読み

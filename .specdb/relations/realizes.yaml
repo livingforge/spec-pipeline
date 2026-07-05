@@ -49,3 +49,5 @@
 - { type: realizes, from: ag-skill-setup, to: fn-llm-config, status: review }
 - { type: realizes, from: sk-specdb, to: fn-standard-pack, status: review }
 - { type: realizes, from: mod-specdb, to: fn-standard-pack, status: review }
+- { type: realizes, from: sk-specdb, to: fn-aggregate, status: review }
+- { type: realizes, from: mod-specdb, to: fn-aggregate, status: review }
