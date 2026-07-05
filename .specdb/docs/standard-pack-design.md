@@ -487,8 +487,13 @@ dist 生成テンプレートの整備で、これは最初のパックを作る
    の文書カタログ + Excel 風ハウススタイル）。build_skill が `scripts/packs/`
    へ同梱し、消費側は `extends: jp-sier-std@1.0` で解決する。結合テスト
    test_pack_jp_sier_std.py が extends→マージ→L1/L2→生成を端から端まで固定。
-4. **Phase 4（未）**: 章立て検証・移行スクリプト・横断集計ツール（extensible
-   enum の「その他」丸め + 内訳付録を含む）
+4. **Phase 4（完了）**:
+   - 横断集計ツール `specdb aggregate`（aggregate.py）— 複数プロジェクトの
+     共通台帳と extensible enum の全社集計（標準外は「その他」に丸め、内訳を
+     昇格候補として掲出）
+   - block 規約リリースチェック `specdb pack check`（STD-W401）
+   - 移行スクリプト `specdb pack migrate`（pack.yaml の migrations 宣言から
+     mutate プランを版マッチで選び、transactional に適用。--dry-run 対応）
 
 各 Phase 完了時に既存プロジェクト（この repo の `.specdb`）を最初の準拠
 プロジェクトとして移行し、ドッグフーディングする。

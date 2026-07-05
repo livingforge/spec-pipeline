@@ -213,6 +213,25 @@ specdb pack build <正本dir> --into <配布dir>   # 正本 specdb → 配布物
 （入れ子の設定値をアイテム属性として持つ）を使う。`pack.yaml`・
 `metamodel/core.yaml`・`templates/*.j2` は配布物側で直接オーサリングする。
 
+### パック改版の移行（pack migrate）
+
+パックのメジャー改版でプロジェクトデータの変換が必要なとき、mutate プランを
+パックの `migrations/` に同梱し、`pack.yaml` の `migrations:` で宣言する:
+
+```yaml
+# pack.yaml
+migrations:
+  - { from: "1.*", to: "2.0", plan: migrations/1.x-to-2.0.json }
+```
+
+```bash
+specdb pack migrate --root <project> --to 2.0 --dry-run   # 適用内容を確認
+specdb pack migrate --root <project> --to 2.0             # 適用（transactional）
+```
+
+現在のパック版に `from` がマッチするエントリの mutate プランを選び、
+transactional に適用する（新たな error が生じれば巻き戻す）。
+
 ### 同梱パック jp-sier-std
 
 日本 SIer 向けの実パックを `specdb/packs/jp-sier-std/` に同梱している

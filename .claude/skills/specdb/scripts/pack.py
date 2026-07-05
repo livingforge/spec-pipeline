@@ -4,6 +4,7 @@
     python specdb/pack.py lock                 # pack.lock を解決結果から生成/更新
     python specdb/pack.py check <パックdir>      # パックのリリースチェック（block 規約等）
     python specdb/pack.py build <正本dir> --into <配布dir>  # 正本 specdb から配布物を生成
+    python specdb/pack.py migrate --to 2.0 [--dry-run]      # パック改版の移行プランを適用
 
 pack.lock は継承チェーンの解決結果（版・内容ハッシュ）を固定する。CI は
 `specdb conform --frozen` で lock と実際の解決結果の一致を機械的に検査できる。
@@ -109,11 +110,96 @@ def _cmd_build(authoring: Path, into: Path) -> int:
     return 0
 
 
+def _cmd_migrate(root: Path, to_version: str | None, plan_name: str | None,
+                 dry_run: bool) -> int:
+    """パック改版の移行プラン（mutate プラン）をプロジェクト正本へ適用する。
+
+    プランはパックの migrations/ に同梱し、pack.yaml の `migrations:` で
+    { from, to, plan } を宣言する。--to で対象版を指定すると、現在のパック版に
+    from がマッチするエントリの plan を選ぶ。--dry-run は適用後に巻き戻す。
+    """
+    import fnmatch
+    import json
+    from mutate import Editor, MutateError, apply_plan
+
+    problems: list[Problem] = []
+    packs = standard.resolve_chain(root, problems)
+    for p in problems:
+        print(p, file=sys.stderr)
+    if not packs:
+        print("extends が無い（移行対象のパックがない）。", file=sys.stderr)
+        return 2
+    pack = packs[0]
+    plan_path = None
+    if plan_name:
+        cand = pack.dir / plan_name
+        plan_path = cand if cand.is_file() else pack.dir / "migrations" / plan_name
+    elif to_version:
+        for m in pack.meta.get("migrations") or []:
+            if str(m.get("to")) == to_version and fnmatch.fnmatch(pack.version,
+                                                                  str(m.get("from", "*"))):
+                plan_path = pack.dir / m["plan"]
+                break
+        if plan_path is None:
+            print(f"{pack.name}@{pack.version} から --to {to_version} への移行プランが"
+                  "pack.yaml の migrations に無い。", file=sys.stderr)
+            return 1
+    else:
+        print("--to <版> か <プラン名> を指定する。", file=sys.stderr)
+        return 2
+    if not plan_path or not plan_path.is_file():
+        print(f"移行プランが見つからない: {plan_path}", file=sys.stderr)
+        return 1
+
+    editor = Editor(root)
+    try:
+        with open(plan_path, encoding="utf-8") as f:
+            apply_plan(editor, json.load(f))
+    except (MutateError, json.JSONDecodeError, OSError) as e:
+        editor.rollback()
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    new_errors, _ = editor.validate()
+    for op in editor.log:
+        print(f"適用: {op}")
+    if new_errors or dry_run:
+        editor.rollback()
+        if new_errors:
+            for p in new_errors:
+                print(p, file=sys.stderr)
+            print("この移行で新たな error が生まれるため巻き戻した。", file=sys.stderr)
+            return 1
+        print(f"--dry-run のため巻き戻した（{len(editor.log)} 操作）。")
+    else:
+        print(f"移行を適用した（{len(editor.log)} 操作）。extends を @{to_version} 系へ"
+              "更新し、conform で確認すること。")
+    return 0
+
+
 def main() -> int:
-    root, args = parse_root(sys.argv[1:])
+    argv = sys.argv[1:]
+    # pack はサブアクションが先頭に来るため、--root <dir> をどこに書いても拾える
+    # よう先頭へ寄せてから parse_root に渡す。
+    if "--root" in argv:
+        i = argv.index("--root")
+        argv = argv[i:i + 2] + argv[:i] + argv[i + 2:]
+    root, args = parse_root(argv)
     action = args[0] if args else None
     if action == "lock":
         return _cmd_lock(root)
+    if action == "migrate":
+        to_version = plan_name = None
+        dry = False
+        rest = args[1:]
+        i = 0
+        while i < len(rest):
+            if rest[i] == "--to":
+                to_version = rest[i + 1]; i += 2
+            elif rest[i] == "--dry-run":
+                dry = True; i += 1
+            else:
+                plan_name = rest[i]; i += 1
+        return _cmd_migrate(root, to_version, plan_name, dry)
     if action == "build":
         if "--into" not in args:
             print("使い方: specdb pack build <正本dir> --into <配布dir>", file=sys.stderr)
