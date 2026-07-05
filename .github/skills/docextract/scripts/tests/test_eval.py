@@ -17,10 +17,10 @@ _HERE = Path(__file__).resolve()
 
 
 def _find_run_eval() -> Path | None:
-    # リポジトリ: <root>/skill-src/docextract/scripts/eval/run_eval.py
+    # リポジトリ: <root>/src/skills/docextract/scripts/eval/run_eval.py
     # バンドル:   <root>/scripts/eval/run_eval.py (このテストは scripts/tests/)
     candidates = [
-        _HERE.parents[1] / "skill-src" / "docextract" / "scripts" / "eval" / "run_eval.py",
+        _HERE.parents[1] / "src" / "skills" / "docextract" / "scripts" / "eval" / "run_eval.py",
         _HERE.parents[1] / "eval" / "run_eval.py",
     ]
     for c in candidates:

@@ -58,12 +58,12 @@
   name: スキルビルドスクリプト
   path: scripts/build_skill.py
   description: >-
-    単一ソース（skill-src/ + agent-src/ + 本体パッケージ）から .claude/ と
+    単一ソース（src/skills/ + src/agents/ + 本体パッケージ）から .claude/ と
     .github/ の両方へ同一内容を展開し、配布物 zip を作成する。SKILL.md と
     エージェント定義は「共通 body + プラットフォーム別フロントマター」から組み立てる。
-  status: approved
+  status: review
   rules: [dr-04, dr-05]
   source:
     doc: README.md
     location: { section: "スキルとしての配布" }
-    evidence: "単一のソース skill-src/ (スキル) + agent-src/ (エージェント) + 本体パッケージ docextract/ から、ビルドスクリプトが .claude/ と .github/ の両方へ同一内容を出力する"
+    evidence: "単一のソース src/skills/ (スキル) + src/agents/ (エージェント) + 本体パッケージ docextract/ から、ビルドスクリプトが .claude/ と .github/ の両方へ同一内容を出力する"

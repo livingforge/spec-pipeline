@@ -41,14 +41,14 @@
   rule_id: DR-04
   name: 単一ソース・多プラットフォーム配布
   statement: >-
-    .claude/ と .github/ 配下は生成物であり直接編集しない。修正は skill-src/・
-    agent-src/・本体パッケージに対して行い、ビルドで両プラットフォームへ
+    .claude/ と .github/ 配下は生成物であり直接編集しない。修正は src/skills/・
+    src/agents/・本体パッケージに対して行い、ビルドで両プラットフォームへ
     同一内容を展開すること。
-  status: approved
+  status: review
   source:
     doc: README.md
     location: { section: "テスト" }
-    evidence: ".claude/ .github/ 配下は生成物なので直接編集しないこと。変更は skill-src/ (スキル文書)・agent-src/ (エージェント定義)・docextract/ (コード) に対して行い、再ビルドする。"
+    evidence: ".claude/ .github/ 配下は生成物なので直接編集しないこと。変更は src/skills/ (スキル文書)・src/agents/ (エージェント定義)・docextract/ (コード) に対して行い、再ビルドする。"
 
 - id: dr-05
   rule_id: DR-05

@@ -341,7 +341,7 @@ class Library:
     ) -> list[dict[str, Any]]:
         """登録済み文書の result.json 本文を横断検索し、出典付きヒットを返す。
 
-        corpus-qa が「資料のどこに何が書いてあるか」を出典 (doc_id + location) 付きで
+        doc-qa が「資料のどこに何が書いてあるか」を出典 (doc_id + location) 付きで
         答えるための接地 (grounding) 手段。各ヒットは
         ``{"doc_id", "source", "location", "kind", "score", "snippet"}``。座標情報を
         保ったまま、テキスト・表・画像 OCR の要素単位で一致を探す。

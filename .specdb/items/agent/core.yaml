@@ -42,19 +42,19 @@
   status: review
   rules: [dr-01, dr-03, dr-06]
   source:
-    doc: agent-src/spec-designer/frontmatter.common.yaml
+    doc: src/agents/spec-designer/frontmatter.common.yaml
     location: { section: "description" }
     evidence: "仕様を specdb の正本データ（メタモデル + アイテム + 関係、出典付き YAML）として設計・整備し、機械検証（error 0）を通したうえで、日本の伝統的な SIer 文化になじむ設計書・仕様書…を生成する"
 
 - id: ag-qa
-  name: corpus-qa
+  name: doc-qa
   phase: 横断 QA
   description: >-
     抽出済みの資料を横断検索し、設計や現状把握の問いに必ず出典
     （どの文書のどこ）を添えて答える。資料にないことは「該当なし」と返し、
-    推測しない。
+    推測しない。旧称 corpus-qa（doc-* / spec-* の命名体系に合わせて改称）。
   output_policy: 回答は必ず出典付き。資料に根拠がなければ「該当なし」
-  status: approved
+  status: review
   rules: [dr-01]
   source:
     doc: docagent/README.md

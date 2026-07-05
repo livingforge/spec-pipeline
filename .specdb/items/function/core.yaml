@@ -89,11 +89,11 @@
   category: 資料活用
   description: >-
     登録済み文書の本文を横断検索し、出典 (doc_id + location) と抜粋を返す。
-    corpus-qa の回答の接地（グラウンディング）に使う。
-  status: approved
+    doc-qa の回答の接地（グラウンディング）に使う。
+  status: review
   source:
     doc: docagent/README.md
-    location: { section: "横断検索（corpus-qa）" }
+    location: { section: "横断検索（doc-qa）" }
     evidence: "python -m docagent search \"権限\" --json # 本文を横断検索し doc_id + location + 抜粋を返す"
 
 - id: fn-facts
@@ -176,7 +176,7 @@
     設計書を生成する。エージェントが担い、設計書は手書きしない。
   status: review
   source:
-    doc: agent-src/spec-designer/body.md
+    doc: src/agents/spec-designer/body.md
     location: { section: "冒頭" }
     evidence: "設計書を手書きしません —— 正本はデータ、設計書はそこから生成されるビューです。"
 

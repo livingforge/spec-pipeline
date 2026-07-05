@@ -11,7 +11,7 @@
     set-doctype   文書種別を設定 (定義内に正規化)
     doctypes      文書種別の表示・追加・削除
     list/query/stats/get/text/export/remove   参照・整理
-  横断検索 (corpus-qa):
+  横断検索 (doc-qa):
     search        本文を横断検索し出典 (doc_id + location) 付きで返す
   仕様の洗い出し (spec-extractor):
     fact-add / facts / fact-remove / facts-stats / facts-export / item-types
@@ -360,7 +360,7 @@ def cmd_sync(args):
     _emit(result, args.json, human)
 
 
-# ── 横断検索 (corpus-qa): 出典付きグラウンデッド検索 ─────────────
+# ── 横断検索 (doc-qa): 出典付きグラウンデッド検索 ─────────────
 def cmd_search(args):
     lib = _load(args)
     # 明示 > config.json > 組み込み既定。
@@ -684,7 +684,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--manifest", help="output/index.json のパス (既定は基点配下)")
     sp.set_defaults(func=cmd_sync)
 
-    # ── 横断検索 (corpus-qa) ──
+    # ── 横断検索 (doc-qa) ──
     sp = add("search", "登録済み文書の本文を横断検索し出典 (doc_id+location) 付きで返す")
     sp.add_argument(
         "term",

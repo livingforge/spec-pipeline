@@ -20,7 +20,7 @@ _HERE = Path(__file__).resolve()
 
 def _find_bootstrap() -> Path | None:
     candidates = [
-        _HERE.parents[1] / "skill-src" / "docextract" / "scripts" / "_bootstrap.py",
+        _HERE.parents[1] / "src" / "skills" / "docextract" / "scripts" / "_bootstrap.py",
         _HERE.parents[1] / "_bootstrap.py",  # バンドル: scripts/_bootstrap.py の隣が tests/
     ]
     for c in candidates:
