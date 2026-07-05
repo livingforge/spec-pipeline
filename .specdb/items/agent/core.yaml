@@ -39,7 +39,7 @@
     日本の伝統的な設計書・仕様書（Excel 風 HTML / Markdown）を生成する。
     設計書は手書きしない。
   output_policy: 正本はデータ、設計書は生成ビュー。検証 error 0 を必達とし、出典 (source) を引き継ぐ
-  status: review
+  status: approved
   rules: [dr-01, dr-03, dr-06]
   source:
     doc: src/agents/spec-designer/frontmatter.common.yaml
@@ -54,7 +54,7 @@
     （どの文書のどこ）を添えて答える。資料にないことは「該当なし」と返し、
     推測しない。旧称 corpus-qa（doc-* / spec-* の命名体系に合わせて改称）。
   output_policy: 回答は必ず出典付き。資料に根拠がなければ「該当なし」
-  status: review
+  status: approved
   rules: [dr-01]
   source:
     doc: docagent/README.md
@@ -67,7 +67,7 @@
   description: >-
     docextract / specdb スキルを動かす共有環境を構築・検証するセットアップエージェント。共有 venv（uv）・両スキルの依存・venv コマンド（specdb / docextract）を setup コマンド経由で用意し、他のエージェント・スキルの利用前に必ず実行される。構築は冪等で、外部取得・インストールなどの高リスク操作は利用者の承認を得てから行う（fail-closed）。
   output_policy: 状態確認（setup --check）の結果と、使えるようになったコマンドの報告のみ
-  status: review
+  status: approved
   source:
     doc: src/agents/skill-setup/body.md
     location: {section: 冒頭}

@@ -22,24 +22,24 @@
 - { type: realizes, from: mod-specdb,     to: fn-generate,  status: approved }
 - { type: realizes, from: sk-specdb,      to: fn-diff,      status: approved }
 - { type: realizes, from: mod-specdb,     to: fn-diff,      status: approved }
-- { type: realizes, from: sk-specdb,      to: fn-visualize, status: review }
-- { type: realizes, from: mod-specdb,     to: fn-visualize, status: review }
+- { type: realizes, from: sk-specdb,      to: fn-visualize, status: approved }
+- { type: realizes, from: mod-specdb,     to: fn-visualize, status: approved }
 
-- { type: realizes, from: ag-designer,    to: fn-author,    status: review }
+- { type: realizes, from: ag-designer,    to: fn-author,    status: approved }
 
 - { type: realizes, from: mod-build,      to: fn-build,     status: approved }
 
-- { type: realizes, from: sk-spec-sync,   to: fn-spec-sync, status: review }
-- { type: realizes, from: sk-specdb,      to: fn-history,   status: review }
-- { type: realizes, from: mod-specdb,     to: fn-history,   status: review }
-- { type: realizes, from: sk-specdb, to: fn-sync-check, status: review }
-- { type: realizes, from: mod-specdb, to: fn-sync-check, status: review }
-- { type: realizes, from: sk-specdb, to: fn-mutate, status: review }
-- { type: realizes, from: mod-specdb, to: fn-mutate, status: review }
-- { type: realizes, from: mod-specdb, to: fn-cli-dispatch, status: review }
-- { type: realizes, from: sk-docextract, to: fn-cli-dispatch, status: review }
-- { type: realizes, from: mod-build, to: fn-cli-dispatch, status: review }
-- { type: realizes, from: ag-skill-setup, to: fn-env-setup, status: review }
-- { type: realizes, from: sk-docextract, to: fn-env-setup, status: review }
-- { type: realizes, from: sk-specdb, to: fn-list, status: review }
-- { type: realizes, from: mod-specdb, to: fn-list, status: review }
+- { type: realizes, from: sk-spec-sync,   to: fn-spec-sync, status: approved }
+- { type: realizes, from: sk-specdb,      to: fn-history,   status: approved }
+- { type: realizes, from: mod-specdb,     to: fn-history,   status: approved }
+- { type: realizes, from: sk-specdb, to: fn-sync-check, status: approved }
+- { type: realizes, from: mod-specdb, to: fn-sync-check, status: approved }
+- { type: realizes, from: sk-specdb, to: fn-mutate, status: approved }
+- { type: realizes, from: mod-specdb, to: fn-mutate, status: approved }
+- { type: realizes, from: mod-specdb, to: fn-cli-dispatch, status: approved }
+- { type: realizes, from: sk-docextract, to: fn-cli-dispatch, status: approved }
+- { type: realizes, from: mod-build, to: fn-cli-dispatch, status: approved }
+- { type: realizes, from: ag-skill-setup, to: fn-env-setup, status: approved }
+- { type: realizes, from: sk-docextract, to: fn-env-setup, status: approved }
+- { type: realizes, from: sk-specdb, to: fn-list, status: approved }
+- { type: realizes, from: mod-specdb, to: fn-list, status: approved }

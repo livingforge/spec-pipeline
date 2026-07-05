@@ -25,11 +25,11 @@
   from: ag-designer
   to: ar-specdata
   note: 仕様ファクト・資料・指示から items/relations を起こし、source（出典）を引き継ぐ
-  status: review
+  status: approved
 
 # --- 入力とする -----------------------------------------------------------
 
-- { type: consumes, from: ag-designer, to: ar-facts, status: review }
+- { type: consumes, from: ag-designer, to: ar-facts, status: approved }
 
 - { type: consumes, from: ag-indexer, to: ar-result,   status: approved }
 - { type: consumes, from: ag-indexer, to: ar-manifest, status: approved }
@@ -51,5 +51,5 @@
   from: sk-spec-sync
   to: ar-specdata
   note: "実装差分を写像して正本を更新する（新規・変更は status: review で登録）"
-  status: review
-- { type: consumes, from: mod-specdb, to: ar-sync-config, status: review }
+  status: approved
+- { type: consumes, from: mod-specdb, to: ar-sync-config, status: approved }

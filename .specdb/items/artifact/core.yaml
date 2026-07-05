@@ -7,7 +7,7 @@
   description: >-
     1 文書の抽出結果。文書 ID・内容ハッシュ・メタデータ・要素一覧
     （text / table / image、各要素に形式ごとの location）を持つ。
-  status: review
+  status: approved
   source:
     doc: README.md
     location: {section: 出力 JSON の形式}
@@ -46,7 +46,7 @@
   description: >-
     出典付きの仕様/要件項目。各項目は doc_id + location + evidence（原文）を
     必ず持ち、statement は後工程がそのまま使える 1 文で書く。
-  status: review
+  status: approved
   source:
     doc: docagent/README.md
     location: {section: 仕様ファクト JSON の構造}
@@ -86,7 +86,7 @@
   format: ZIP
   description: >-
     スキル・エージェント定義・パッケージメタ・配布物設計データ（.specdb）をまとめた配布物。展開先リポジトリのルートに解凍するだけで導入が完了し、venv コマンド（specdb / docextract）は初回 bootstrap 時に共有 venv へ install される。
-  status: review
+  status: approved
   source:
     doc: README.md
     location: { section: "スキルとしての配布" }
@@ -98,7 +98,7 @@
   format: YAML
   description: >-
     sync_check.py が使う実装と正本の突合規則。リポジトリパスを持つ属性（path_attributes）、実在検査の対象（check_exists）、実体の棚卸し規則（inventory: glob と突合キー）を宣言する。
-  status: review
+  status: approved
   source:
     doc: .specdb/sync.yaml
     location: {section: 冒頭}

@@ -90,7 +90,7 @@
   description: >-
     登録済み文書の本文を横断検索し、出典 (doc_id + location) と抜粋を返す。
     doc-qa の回答の接地（グラウンディング）に使う。
-  status: review
+  status: approved
   source:
     doc: docagent/README.md
     location: { section: "横断検索（doc-qa）" }
@@ -160,7 +160,7 @@
     検証結果のオーバーレイ・一覧テーブル表示を持つ。レビュー中（status: review）の
     アイテム・関係は破線で強調され、レビュー対象とその隣接だけの関係グラフに
     絞り込める。
-  status: review
+  status: approved
   source:
     doc: .claude/skills/specdb/SKILL.md
     location: { section: "冒頭" }
@@ -174,7 +174,7 @@
     仕様ファクトや資料・指示から metamodel.yaml と items/・relations/ を設計・
     整備し（出典を引き継ぐ）、検証を通したうえで文書定義・テンプレートを設計して
     設計書を生成する。エージェントが担い、設計書は手書きしない。
-  status: review
+  status: approved
   source:
     doc: src/agents/spec-designer/body.md
     location: { section: "冒頭" }
@@ -189,7 +189,7 @@
     「アイテム・関係の追加/削除/変更」のレベルで再構成して時系列の変更履歴を
     作る。アイテム単位の変遷（--id）と機械可読出力（--json）を持ち、
     生成設計書の改訂履歴シートはこの実履歴から自動で埋まる。
-  status: review
+  status: approved
   source:
     doc: specdb/history.py
     location: { section: "冒頭 docstring" }
@@ -201,7 +201,7 @@
   category: 仕様管理
   description: >-
     機能の追加・変更・廃止のあとに、実装差分を .specdb の語彙（アイテム・関係）へ写像して正本を更新する。同期候補の列挙（sync_check.py）と正本の更新（mutate.py の plan 適用）を機械化し、新規・変更は status: review で登録、機械検証 error 0 とビュー再生成までを完了の定義（CLAUDE.md）とする。
-  status: review
+  status: approved
   source:
     doc: CLAUDE.md
     location: { section: "完了の定義（Definition of Done）" }
@@ -226,7 +226,7 @@
   description: >-
     実装と仕様データ（正本）の乖離を機械的に検出し、spec-sync の同期候補を列挙する。変更ファイルを参照するアイテム/関係の逆引き（ドリフト）、sync.yaml の規則によるリポジトリ実体との棚卸し（未登録・実体なし）、出典の鮮度検査（doc の実在・evidence の照合）から成り、--strict で CI ゲートにできる。
   category: 仕様管理
-  status: review
+  status: approved
   source:
     doc: specdb/sync_check.py
     location: {section: docstring}
@@ -238,7 +238,7 @@
   description: >-
     仕様データへの追記・状態変更を機械的に行う。ID の接頭辞と採番・連番属性（metamodel の id_prefix / sequence 宣言）の自動化、status: review での登録、source（出典）必須、approved は approve 操作のみ、という規約をツールで強制する。操作リスト（plan.json）の一括適用に対応し、適用後の再検証で新たな error が生まれたら自動で巻き戻す。
   category: 仕様管理
-  status: review
+  status: approved
   source:
     doc: specdb/mutate.py
     location: {section: docstring}
@@ -250,7 +250,7 @@
   description: >-
     スキルのスクリプト操作を venv コマンド specdb / docextract に統一する。共有 venv へは探索係パッケージ skill-launcher（scripts/launcher/、_bootstrap.py が install）が console script を登録し、任意のディレクトリから <スキル名> <サブコマンド> [オプション] で起動できる。コマンドは cwd から上方探索して展開済みスキル（スキル直下の転送ファイルと scripts/__main__.py のディスパッチャ。build_skill.py が生成）へ委譲するだけで、スキル本体は install しないため zip 再展開の更新に追従する。specdb は --root 未指定時にプロジェクトの .specdb を自動補完し、__init__.py を持つ同名の通常 Python パッケージは誤解決しない。venv 準備前のフォールバックとして python <スキルディレクトリ> <サブコマンド> と従来の python <ディレクトリ>/scripts/<ツール>.py も使える。
   category: 配布
-  status: review
+  status: approved
   source:
     doc: src/skills/docextract/scripts/launcher/skill_launcher.py
     location: {section: docstring}
@@ -262,7 +262,7 @@
   description: >-
     スキル実行に必要な共有環境を一括構築する。共有 venv の作成（uv。必要なら Python 本体も調達）、docextract / specdb 両スキルの依存インストール（requirements.lock 優先・marker による冪等化）、venv コマンド specdb / docextract の install を setup サブコマンド（setup_env.py）が行い、--check は無変更・承認不要の状態確認を提供する。高リスク操作は _bootstrap の承認ゲート（opt-in・fail-closed）を必ず通る。従来どおり extract / docagent の初回実行でも同じ bootstrap が走る（フォールバック）。
   category: 配布
-  status: review
+  status: approved
   source:
     doc: src/skills/docextract/scripts/setup_env.py
     location: {section: docstring}
@@ -274,7 +274,7 @@
   description: >-
     アイテムと関係を status・種別で絞って列挙する読み取り専用ツール。正本の YAML は書き換えず engine の Store をそのまま読む。ref を mutate の参照形式（アイテムは id、関係は 型:from->to）で出すため、--json 出力の各 ref を plan.json の approve 操作へそのまま渡せる。承認（mutate approve / plan の apply）の前段で対象を機械的に列挙する用途に用いる。
   category: 仕様管理
-  status: review
+  status: approved
   source:
     doc: specdb/list.py
     location: {section: docstring}

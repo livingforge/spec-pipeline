@@ -43,7 +43,7 @@
   path: specdb/
   description: >-
     メタモデル駆動の汎用エンジン。ローダ/バリデータ/クエリ API (engine.py)・文書ジェネレータ (generate.py)・ベースライン差分 (diff.py)・変更履歴 (history.py)・対話型グラフビューア (visualize.py)・同期チェック (sync_check.py)・変更操作 CLI (mutate.py) から成る。特定のアイテム種別を知らない。ビルドで .claude/skills/specdb/scripts/ へ展開される。
-  status: review
+  status: approved
   rules: [dr-03, dr-04, dr-06]
   depends:
     - { lib: lib-pyyaml }
@@ -60,7 +60,7 @@
     単一ソース（src/skills/ + src/agents/ + 本体パッケージ）から .claude/ と
     .github/ の両方へ同一内容を展開し、配布物 zip を作成する。SKILL.md と
     エージェント定義は「共通 body + プラットフォーム別フロントマター」から組み立てる。
-  status: review
+  status: approved
   rules: [dr-04, dr-05]
   source:
     doc: README.md

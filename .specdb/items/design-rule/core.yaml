@@ -42,7 +42,7 @@
   name: 単一ソース・多プラットフォーム配布
   statement: >-
     .claude/ と .github/ 配下は生成物であり直接編集しない。修正は src/skills/・src/agents/・本体パッケージに対して行い、ビルドで両プラットフォームへ同一内容を展開すること。文書・エージェントのコマンド例はスキル統一形式（python <スキルディレクトリ> <サブコマンド>）とプレースホルダ（{{skill_dir}} 等）で書き、展開先パスや scripts/ 内の個別ファイル名への依存を避けること。
-  status: review
+  status: approved
   source:
     doc: README.md
     location: { section: "テスト" }

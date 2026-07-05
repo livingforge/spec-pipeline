@@ -6,7 +6,7 @@
     Office 文書 (Word / Excel / PowerPoint) と PDF を解析し、テキスト・表・画像を
     抽出して出典付きの構造化 JSON として出力する文書抽出スキル。
   runtime: Python 3.10+（共有仮想環境 .venv、起動スクリプト経由で自動セットアップ）
-  status: review
+  status: approved
   rules: [dr-01, dr-05]
   source:
     doc: README.md
@@ -33,7 +33,7 @@
   purpose: >-
     実装の変更を .specdb（設計データの正本）へ同期する手順スキル。同期候補の列挙は sync_check.py、正本の更新は mutate.py の plan 適用で機械化し、人と LLM の判断は「仕様の変化か」の判定と文章化だけに絞る。機械検証 error 0 → ビュー再生成 → レビュー待ちの報告（history.py --uncommitted）までを定型化し、実装と設計データの乖離を防ぐ。
   runtime: 手順のみ（specdb スキル同梱のツールを利用）
-  status: review
+  status: approved
   rules: [dr-01, dr-06]
   source:
     doc: .claude/skills/spec-sync/SKILL.md
