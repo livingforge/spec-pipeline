@@ -8,6 +8,10 @@
 !/.specdb/
 !/README.md
 !/.gitignore
+!/.gitattributes
+!/.vscode/
+/.vscode/*
+!/.vscode/settings.json
 
 # 許可フォルダ内でも、これらは公開しない
 __pycache__/

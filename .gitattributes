@@ -1,0 +1,26 @@
+# 既定: テキストは自動判定し、リポジトリ内は LF に正規化する
+* text=auto eol=lf
+
+# Windows 専用スクリプトは CRLF を保つ
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# バイナリは改行変換しない
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.docx binary
+*.doc  binary
+*.xlsx binary
+*.xls  binary
+*.pptx binary
+*.ppt  binary
+*.zip  binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
