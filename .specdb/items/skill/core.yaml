@@ -52,3 +52,15 @@
     doc: src/skills/docsummary/body.md
     location: {section: 冒頭}
     evidence: '**パース済み文書情報に付加する固定構造**（メタ表 + カテゴリー + 本文）で'
+
+- id: sk-spec-reconcile
+  name: spec-reconcile
+  purpose: >-
+    抽出ファクト（facts.json）を意味的に名寄せし、specdb アイテム化の前に一貫性を整える提案スキル。決定的なブロッキング（LLM 不要）で同一かもしれないファクトを束ね、LLM が同一概念のグループ化・矛盾検出・用語統一を出典付きで裁定して reconcile.json を出力する。承認済み概念は specdb mutate plan（add-item・status review）へ決定的に変換し、適用と承認は既存の specdb ツールと人のレビューに委ねる。specdb の構造的検証が捉えない意味的一貫性を補い、文書を順に渡しても結果が揺れないようにする。
+  runtime: >-
+    Python 3.10+（追加依存なし。標準ライブラリのみで各社 REST API を呼ぶ）。実行体（specreconcile パッケージ）は本スキルの scripts に同梱し、依存する docextract / docagent / docsummary パッケージと requirements は同梱せず同一プロジェクトの兄弟スキル（docextract / docsummary）を実行時参照で解決する。plan サブコマンドの PyYAML は specdb スキルが同じ共有 venv に用意する。
+  status: review
+  source:
+    doc: src/skills/spec-reconcile/body.md
+    location: {section: 冒頭}
+    evidence: 抽出ファクトを意味的に名寄せする

@@ -136,3 +136,9 @@ def main_docsummary() -> int:
     """venv コマンド `docsummary`。独立スキル docsummary へ委譲する
     (実体の docsummary パッケージは docsummary スキルに同梱される)。"""
     return main("docsummary", sys.argv[1:])
+
+
+def main_spec_reconcile() -> int:
+    """venv コマンド `spec-reconcile`。独立スキル spec-reconcile へ委譲する
+    (実体の specreconcile パッケージは spec-reconcile スキルに同梱される)。"""
+    return main("spec-reconcile", sys.argv[1:])

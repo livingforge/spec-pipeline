@@ -6,3 +6,7 @@
 - { type: follows, from: sk-docsummary, to: dr-skill-executable-cohesion, status: review }
 - { type: follows, from: sk-docextract, to: dr-skill-executable-cohesion, status: review }
 - { type: follows, from: mod-build, to: dr-skill-executable-cohesion, status: review }
+- { type: follows, from: sk-spec-reconcile, to: dr-01, status: review }
+- { type: follows, from: sk-spec-reconcile, to: dr-02, status: review }
+- { type: follows, from: sk-spec-reconcile, to: dr-04, status: review }
+- { type: follows, from: sk-spec-reconcile, to: dr-skill-executable-cohesion, status: review }

@@ -326,3 +326,15 @@
     doc: specdb/README.md
     location: {section: 横断集計とパックのリリースチェック}
     evidence: aggregate は標準パックを共有する複数プロジェクトを横串で読み
+
+- id: fn-reconcile
+  func_id: F-26
+  name: 仕様ファクトの意味的名寄せ
+  description: >-
+    抽出ファクト（facts.json）の意味的な重複・矛盾を解消する提案を作る。決定的なブロッキングで同一かもしれない候補を束ね、LLM が同一概念のグループ化と矛盾検出を出典付きで裁定し、reconcile.json（統合提案・矛盾・用語対応）として出力する。承認済み概念は specdb の add-item（status review）へ決定的に落とす。①ブロッキングと④plan 生成は決定的で文書の提示順に依存せず、②の LLM 判定のみ非決定的だが必ずレビューを通る。specdb エンジンが担保しない意味的一貫性（別 ID の同一概念・相反する値）を補い、文書を順に渡しても畳み込みが揺れないようにする。
+  category: 仕様管理
+  status: review
+  source:
+    doc: src/skills/spec-reconcile/body.md
+    location: {section: 冒頭}
+    evidence: 意味的一貫性を 1 箇所に封じ込める

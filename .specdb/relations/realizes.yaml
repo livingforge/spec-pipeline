@@ -51,3 +51,4 @@
 - { type: realizes, from: mod-specdb, to: fn-standard-pack, status: approved }
 - { type: realizes, from: sk-specdb, to: fn-aggregate, status: approved }
 - { type: realizes, from: mod-specdb, to: fn-aggregate, status: approved }
+- { type: realizes, from: sk-spec-reconcile, to: fn-reconcile, status: review }
