@@ -258,6 +258,38 @@ def test_facts_limit_offset_paginates(store, tmp_path, capsys):
     assert "--offset 5" in captured.err
 
 
+# ── ⑥c facts-pending: まだファクトが1件も無い文書を洗い出す ─────────────
+def test_facts_pending_lists_docs_without_facts(store, tmp_path, capsys):
+    with_facts = _add_doc(store, tmp_path, "a.docx", ["hi"])
+    without = _add_doc(store, tmp_path, "b.docx", ["yo"])
+    store("item-types", "add", "機能要件")
+    store("fact-add", "--doc", with_facts, "--type", "機能要件", "--statement", "s")
+    capsys.readouterr()
+
+    store("facts-pending", "--json")
+    docs = json.loads(capsys.readouterr().out.strip())
+    ids = {d["id"] for d in docs}
+    assert ids == {without}  # ファクトのある文書は除外される
+
+    # ファクトを付けたら未抽出リストから消える
+    store("fact-add", "--doc", without, "--type", "機能要件", "--statement", "t")
+    capsys.readouterr()
+    store("facts-pending", "--json")
+    assert json.loads(capsys.readouterr().out.strip()) == []
+
+
+def test_facts_pending_filters_by_doctype(store, tmp_path, capsys):
+    a = _add_doc(store, tmp_path, "a.docx", ["hi"])
+    b = _add_doc(store, tmp_path, "b.docx", ["yo"])
+    store("set-doctype", a, "要件定義")
+    store("set-doctype", b, "議事録")
+    capsys.readouterr()
+
+    store("facts-pending", "--doctype", "要件定義", "--json")
+    docs = json.loads(capsys.readouterr().out.strip())
+    assert {d["id"] for d in docs} == {a}  # 指定種別かつファクト無しのみ
+
+
 def _write_config(tmp_path: Path, **values) -> Path:
     cfg = tmp_path / "myconfig.json"
     cfg.write_text(json.dumps(values, ensure_ascii=False), encoding="utf-8")

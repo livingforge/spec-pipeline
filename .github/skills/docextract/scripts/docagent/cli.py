@@ -14,7 +14,7 @@
   横断検索 (doc-qa):
     search        本文を横断検索し出典 (doc_id + location) 付きで返す
   仕様の洗い出し (spec-extractor):
-    fact-add / facts / fact-remove / facts-stats / facts-export / item-types
+    fact-add / facts / facts-pending / fact-remove / facts-stats / facts-export / item-types
 
 すべてのサブコマンドは ``--json`` で機械可読な JSON を出力する
 (エージェントはこれをパースして次の操作を決める)。``--store`` で保存先を変更できる。
@@ -490,6 +490,29 @@ def cmd_facts(args):
     )
 
 
+def cmd_facts_pending(args):
+    # 「まだファクトが1件も無い文書」= 文書一覧 (library) から、ファクトを持つ
+    # doc_id 集合を差し引いた残り。facts-stats の by_doc はファクトを持つ文書しか
+    # 列挙しないため未着手を直接は取れない。ここで両ストアを突き合わせて埋める。
+    lib = _load(args)
+    fs = _load_facts(args)
+    with_facts = {it.get("doc_id") for it in fs.items}
+    docs = lib.query(doctype=args.doctype) if args.doctype else lib.documents
+    pending = _project([d for d in docs if d["id"] not in with_facts], args.full)
+    _emit_list(
+        pending,
+        args,
+        lambda o: (
+            print(f"ファクト未抽出の文書 {len(o)} 件:")
+            or [print("  " + _doc_line(d)) for d in o]
+            or (print("  (なし)") if not o else None)
+        ),
+        hint="--doctype で種別を絞る・--limit/--offset でページング・"
+        "-o <ファイル> に書き出し、または --stdout で全出力",
+        noun="文書",
+    )
+
+
 def cmd_fact_remove(args):
     fs = _load_facts(args)
     item = fs.remove(args.id)
@@ -794,6 +817,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_list_opts(sp)
     sp.set_defaults(func=cmd_facts)
+
+    sp = add("facts-pending", "まだファクトが1件も無い文書を一覧 (未抽出の洗い出し対象)")
+    sp.add_argument("--doctype", help="文書種別で絞る (例: 要件定義書)")
+    sp.add_argument(
+        "--full",
+        action="store_true",
+        help="metadata・パス等を含む完全な dict を出力 (既定はスリム射影)",
+    )
+    add_list_opts(sp)
+    sp.set_defaults(func=cmd_facts_pending)
 
     sp = add("fact-remove", "ファクトを削除")
     sp.add_argument("id")

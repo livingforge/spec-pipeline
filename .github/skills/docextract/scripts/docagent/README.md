@@ -34,7 +34,8 @@
 - **文書の索引（library.json）**: prep / add / **sync**（一括登録）/ **set-doctype**（文書種別付与）/
   **doctypes**（種別の表示・編集）/ list / query / stats / export
 - **横断検索（doc-qa 用）**: **search**（本文を横断検索し出典 doc_id + location 付きで返す）
-- **仕様ファクト（facts.json / spec-extractor 用）**: **fact-add** / **facts** / **fact-remove** /
+- **仕様ファクト（facts.json / spec-extractor 用）**: **fact-add** / **facts** /
+  **facts-pending**（まだファクトが1件も無い文書を洗い出す）/ **fact-remove** /
   **facts-stats** / **facts-export** / **item-types**（種別の表示・編集）
 
 > **起動方法**: 以下の `python -m docagent` は、docagent パッケージのある
@@ -68,6 +69,7 @@ python -m docagent fact-add --doc <id> --type "機能要件" \
     --evidence "月次売上はCSVエクスポート可能" \
     --location '{"page": 3}' --keywords "CSV,売上" --confidence high
 python -m docagent facts --doc <id>                       # 抽出済みファクトを一覧
+python -m docagent facts-pending --json                   # まだファクトが1件も無い文書を洗い出す
 python -m docagent facts-export -o facts.json             # ファクトを1ファイルに出力
 ```
 

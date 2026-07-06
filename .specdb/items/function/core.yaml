@@ -101,9 +101,8 @@
   name: 仕様ファクトの管理
   category: 資料活用
   description: >-
-    文書から洗い出した機能要件・業務ルール・データ項目等を、出典付きファクト
-    (doc_id + location + evidence) として蓄積・一覧・出力する。
-  status: approved
+    文書から洗い出した機能要件・業務ルール・データ項目等を、出典付きファクト (doc_id + location + evidence) として蓄積・一覧・出力する。さらに文書一覧とファクトを突き合わせ、まだファクトが1件も無い文書（未抽出の洗い出し対象）を facts-pending で列挙できる。
+  status: review
   source:
     doc: docagent/README.md
     location: { section: "仕様ファクト JSON の構造" }
