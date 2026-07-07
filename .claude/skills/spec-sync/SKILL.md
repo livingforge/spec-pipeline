@@ -1,6 +1,6 @@
 ---
 name: spec-sync
-description: Sync implementation changes into .specdb, the project's spec-as-data single source of truth - let sync_check.py enumerate drift candidates (changed files vs spec items, inventory, source freshness), judge which are spec changes, apply them via a mutate.py plan (auto-numbered IDs, status review enforced, transactional rollback), pass machine validation (error 0), regenerate the views, and report the pending review list from history.py. Use after implementing/changing/removing a feature, or when asked to "specdb を更新 / 仕様データに反映 / 設計データを同期 / spec-sync". Run it as the final step of implementation work so the spec data never drifts behind the code.
+description: Sync implementation changes into .specdb, the project's spec-as-data single source of truth. sync_check.py enumerates drift candidates (changed files vs spec items, inventory, source freshness); you judge which are spec changes and apply them via a mutate.py plan (auto-numbered IDs, status review enforced, transactional rollback), pass machine validation (error 0), regenerate the views, and report the pending review list from history.py. Use after implementing/changing/removing a feature, or when asked to "specdb を更新 / 仕様データに反映 / spec-sync". Run it as the final step of implementation work so the spec data never drifts behind the code.
 license: MIT
 ---
 
