@@ -1,0 +1,55 @@
+# L2 準拠規則の正本 — ここから dist の conformance/rules.yaml が生成される。
+- id: cr-require-basic-design
+  summary: 基本設計書は必ず実体化する
+  rule_kind: require-documents
+  documents: [basic-design]
+  order: 1
+  status: approved
+  source:
+    doc: contextdb/packs/jp-sier-std/conformance/rules.yaml
+    location: { section: require_documents }
+    evidence: 'require_documents: [basic-design]'
+
+- id: cr-screen-desc
+  summary: 画面はレビュー以降で説明必須
+  rule_kind: attribute-rule
+  rule: { type: screen, attribute: description, when_status: [review, approved], level: error }
+  order: 2
+  status: approved
+  source:
+    doc: contextdb/packs/jp-sier-std/conformance/rules.yaml
+    location: { section: attribute_rules }
+    evidence: '{ type: screen, attribute: description, when_status: [review, approved], level: error }'
+
+- id: cr-entity-desc
+  summary: エンティティは承認時に説明必須
+  rule_kind: attribute-rule
+  rule: { type: entity, attribute: description, when_status: [approved], level: warn }
+  order: 3
+  status: approved
+  source:
+    doc: contextdb/packs/jp-sier-std/conformance/rules.yaml
+    location: { section: attribute_rules }
+    evidence: '{ type: entity, attribute: description, when_status: [approved], level: warn }'
+
+- id: cr-if-desc
+  summary: 外部IFはレビュー以降で説明必須
+  rule_kind: attribute-rule
+  rule: { type: external-interface, attribute: description, when_status: [review, approved], level: error }
+  order: 4
+  status: approved
+  source:
+    doc: contextdb/packs/jp-sier-std/conformance/rules.yaml
+    location: { section: attribute_rules }
+    evidence: '{ type: external-interface, attribute: description, when_status: [review, approved], level: error }'
+
+- id: cr-baseline
+  summary: ベースラインは approved 必須
+  rule_kind: status-rule
+  settings: { baseline_requires: approved }
+  order: 5
+  status: approved
+  source:
+    doc: contextdb/packs/jp-sier-std/conformance/rules.yaml
+    location: { section: status_rules }
+    evidence: 'baseline_requires: approved'

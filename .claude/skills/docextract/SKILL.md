@@ -22,7 +22,7 @@ see [package-meta/docextract/dependencies.md](../../package-meta/docextract/depe
 Set up the environment once with the dedicated command (or delegate to the
 @skill-setup agent). It builds the shared `.venv` at the project root with
 [uv](https://docs.astral.sh/uv/), installs the requirements of both skills, and
-installs the venv commands `specdb` / `docextract`. It is idempotent, and
+installs the venv commands `contextdb` / `docextract`. It is idempotent, and
 `--check` reports the current state without changing anything. As a fallback,
 the first run of `extract` / `docagent` also triggers the same bootstrap.
 

@@ -1,0 +1,74 @@
+# メソッドの正本（詳細設計工程）。has-method でモジュールに属し、enforces で業務ルールを実装する。
+
+- id: mth-01
+  method_id: MTH-01
+  signature: 'ReservationService#createReservation(ReservationInput in): ReservationId'
+  description: 入力を検証し、重複がなければ予約を登録する。特別会議室なら仮予約とする。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-02
+  method_id: MTH-02
+  signature: 'ReservationService#cancelReservation(ReservationId id, UserId by): void'
+  description: 予約者本人または管理者が開始1時間前までに取消する。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-03
+  method_id: MTH-03
+  signature: 'ReservationService#changeReservation(ReservationId id, ReservationInput in): void'
+  description: 既存予約を変更し、変更後の内容を再度検証する。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-04
+  method_id: MTH-04
+  signature: 'AvailabilityService#searchAvailableRooms(SearchCond cond): List<Room>'
+  description: 日付・階・時間帯を条件に空いている会議室を返す。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-05
+  method_id: MTH-05
+  signature: 'AvailabilityService#isOverlapping(RoomId room, TimeSlot slot): boolean'
+  description: 指定会議室・時間帯に既存予約が重なるかを判定する。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-06
+  method_id: MTH-06
+  signature: 'ReservationValidator#validate(ReservationInput in): ValidationResult'
+  description: 必須・桁・定員・時間帯・時間長を検証し違反を返す。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-07
+  method_id: MTH-07
+  signature: 'ApprovalService#approve(ReservationId id, UserId approver): void'
+  description: 承認者が仮予約を確定にし、却下時は取消にする。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- id: mth-08
+  method_id: MTH-08
+  signature: 'ReservationRepository#insert(Reservation r): void'
+  description: 予約1件を予約テーブルへ登録する。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様

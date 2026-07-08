@@ -8,8 +8,8 @@
 
   1. 共有 venv（<プロジェクトルート>/.venv。uv で作成）
   2. docextract の依存（requirements.lock があればハッシュ固定で優先）
-  3. specdb の依存（隣接スキル specdb の requirements.txt。PyYAML + Jinja2）
-  4. venv コマンド specdb / docextract / docsummary（探索係 launcher/ の install）
+  3. contextdb の依存（隣接スキル contextdb の requirements.txt。PyYAML + Jinja2）
+  4. venv コマンド contextdb / docextract / docsummary（探索係 launcher/ の install）
 
 @skill-setup エージェントがこのコマンドを駆動する（スキル利用前に必ず実行
 される前提）。冪等: 構築済みの項目は marker により素通りする。外部取得・
@@ -40,11 +40,11 @@ def _command(venv: Path, name: str) -> Path:
     return venv / sub / (f"{name}.exe" if os.name == "nt" else name)
 
 
-def _specdb_requirements() -> Path | None:
-    """隣接する specdb スキルの依存記述（展開先 / 開発リポジトリの両レイアウト）。"""
+def _contextdb_requirements() -> Path | None:
+    """隣接する contextdb スキルの依存記述（展開先 / 開発リポジトリの両レイアウト）。"""
     skills = _scripts.parent.parent
-    for cand in (skills / "specdb" / "scripts" / "requirements.txt",
-                 skills / "specdb" / "requirements.txt"):
+    for cand in (skills / "contextdb" / "scripts" / "requirements.txt",
+                 skills / "contextdb" / "requirements.txt"):
         if cand.is_file():
             return cand
     return None
@@ -64,7 +64,7 @@ def check() -> int:
 
     status(f"共有 venv ({venv})", venv_python.exists(),
            "" if venv_python.exists() else "未作成")
-    for name in ("specdb", "docextract", "docsummary"):
+    for name in ("contextdb", "docextract", "docsummary"):
         cmd = _command(venv, name)
         status(f"venv コマンド {name}", cmd.is_file(),
                "" if cmd.is_file() else "未インストール")
@@ -72,7 +72,7 @@ def check() -> int:
         probe = subprocess.run(
             [str(venv_python), "-c", "import yaml, jinja2"], capture_output=True
         )
-        status("specdb 依存 (PyYAML + Jinja2)", probe.returncode == 0)
+        status("contextdb 依存 (PyYAML + Jinja2)", probe.returncode == 0)
         pytest_probe = subprocess.run(
             [str(venv_python), "-c", "import pytest"], capture_output=True
         )
@@ -108,10 +108,10 @@ def setup() -> int:
         note="初回は数百 MB のダウンロードが発生します"
              " (OCR/表検出モデルは実行時に別途取得)。",
     )
-    specdb_req = _specdb_requirements()
-    if specdb_req is not None:
+    contextdb_req = _contextdb_requirements()
+    if contextdb_req is not None:
         _bootstrap._ensure_requirements(
-            uv, venv, venv_python, specdb_req, "specdb", boot_log,
+            uv, venv, venv_python, contextdb_req, "contextdb", boot_log,
             note="PyYAML + Jinja2 のみの軽量なインストールです。",
         )
     _bootstrap._ensure_launcher(uv, venv, venv_python, _scripts / "launcher",

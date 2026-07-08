@@ -495,6 +495,6 @@ def resolve_docs(
         raise DocAgentError(
             "対象の文書を選べませんでした。" + detail +
             " 登録済みの一覧は docextract docagent list。未登録なら先に"
-            " @doc-indexer で抽出・登録してください"
+            " @corpus-builder で抽出・登録してください"
         )
     return list(selected.values())

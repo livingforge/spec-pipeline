@@ -1,4 +1,4 @@
-# venv コマンド (specdb / docextract) を提供する探索係パッケージ。
+# venv コマンド (contextdb / docextract) を提供する探索係パッケージ。
 # _bootstrap.py が共有 venv へ install する。コードの正本（各スキル）は
 # install せず、実行時に cwd から上方探索して展開済みスキルへ委譲する。
 [build-system]
@@ -7,15 +7,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skill-launcher"
-version = "1.2.0"
-description = "スキル CLI を任意のディレクトリから起動する console script (specdb / docextract / docsummary / spec-reconcile)"
+version = "1.3.0"
+description = "スキル CLI を任意のディレクトリから起動する console script (contextdb/ctx / docextract / docsummary / fact-reconcile)"
 requires-python = ">=3.10"
 
 [project.scripts]
-specdb = "skill_launcher:main_specdb"
+contextdb = "skill_launcher:main_contextdb"
+ctx = "skill_launcher:main_contextdb"
 docextract = "skill_launcher:main_docextract"
 docsummary = "skill_launcher:main_docsummary"
-spec-reconcile = "skill_launcher:main_spec_reconcile"
+fact-reconcile = "skill_launcher:main_fact_reconcile"
 
 [tool.setuptools]
 py-modules = ["skill_launcher"]

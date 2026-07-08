@@ -3,7 +3,7 @@
     python -m docagent <サブコマンド> [オプション]
 
 サブコマンド一覧:
-  現状把握 (doc-indexer):
+  現状把握 (corpus-builder):
     init          ストアと doctypes.json / facts.json を初期化
     add           docextract の result.json を取り込み登録
     sync          抽出マニフェストの全文書を一括で登録/更新
@@ -11,13 +11,13 @@
     set-doctype   文書種別を設定 (定義内に正規化)
     doctypes      文書種別の表示・追加・削除
     list/query/stats/get/text/export/remove   参照・整理
-  横断検索 (doc-qa):
+  横断検索 (grounded-qa):
     search        本文を横断検索し出典 (doc_id + location) 付きで返す
-  仕様の洗い出し (spec-extractor):
+  仕様の洗い出し (fact-extractor):
     fact-add / facts / facts-pending / fact-remove / facts-stats / facts-export
     facts-merge   並列抽出したシャード facts.json を主ストアへ統合 (ID 振り直し)
     item-types / rel-types   ファクト種別・参照 (refs) の関係種別を管理
-  ブロック抽出プロトコル (spec-batch が set/check、spec-extractor が get/send):
+  ブロック抽出プロトコル (fact-batch が set/check、fact-extractor が get/send):
     context-set     文書群をブロック作業キューへ確定 (シート/ページ単位で結合・分割)
     context-get     次の未処理ブロックの本文+語彙をアトミックに払い出す (ID 自動割り当て)
     context-send    抽出結果 [{type, statement, refs?}] をシャードへ保存 (→done)
@@ -198,7 +198,7 @@ def cmd_init(args):
     lib = _load(args)
     lib.save()
     lib.save_doctypes()
-    # ファクトストアと種別定義も同時に用意する (spec-extractor 用)。
+    # ファクトストアと種別定義も同時に用意する (fact-extractor 用)。
     fs = _load_facts(args)
     fs.save()
     fs.save_item_types()
@@ -409,7 +409,7 @@ def cmd_doctypes(args):
     )
 
 
-# ── 現状把握 (doc-indexer): 抽出済みを一括登録 ───────────────────
+# ── 現状把握 (corpus-builder): 抽出済みを一括登録 ───────────────────
 def cmd_sync(args):
     lib = _load(args)
     manifest = args.manifest or str(_paths.manifest_path())
@@ -427,7 +427,7 @@ def cmd_sync(args):
     _emit(result, args.json, human)
 
 
-# ── 横断検索 (doc-qa): 出典付きグラウンデッド検索 ─────────────
+# ── 横断検索 (grounded-qa): 出典付きグラウンデッド検索 ─────────────
 def cmd_search(args):
     lib = _load(args)
     # 明示 > config.json > 組み込み既定。
@@ -444,7 +444,7 @@ def cmd_search(args):
     _emit(hits, args.json, human, hint="--max-hits を下げる・--doc で絞る・--stdout で強制")
 
 
-# ── 仕様の洗い出し (spec-extractor): ファクト操作 ────────────────
+# ── 仕様の洗い出し (fact-extractor): ファクト操作 ────────────────
 def _fact_line(it: dict) -> str:
     loc = json.dumps(it.get("location", {}), ensure_ascii=False)
     refs = it.get("refs") or []
@@ -1000,12 +1000,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("name", nargs="?")
     sp.set_defaults(func=cmd_doctypes)
 
-    # ── 現状把握 (doc-indexer) ──
+    # ── 現状把握 (corpus-builder) ──
     sp = add("sync", "抽出マニフェストの全文書を一括で索引に登録/更新")
     sp.add_argument("--manifest", help="output/index.json のパス (既定は基点配下)")
     sp.set_defaults(func=cmd_sync)
 
-    # ── 横断検索 (doc-qa) ──
+    # ── 横断検索 (grounded-qa) ──
     sp = add("search", "登録済み文書の本文を横断検索し出典 (doc_id+location) 付きで返す")
     sp.add_argument(
         "term",
@@ -1021,7 +1021,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.set_defaults(func=cmd_search)
 
-    # ── 仕様の洗い出し (spec-extractor): ファクト ──
+    # ── 仕様の洗い出し (fact-extractor): ファクト ──
     sp = add("fact-add", "抽出した仕様・要件ファクトを1件追加 (出典必須)")
     sp.add_argument("--doc", required=True, help="抽出元の文書 ID")
     sp.add_argument("--type", required=True, help="ファクト種別 (item-types のいずれか)")

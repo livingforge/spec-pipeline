@@ -1,0 +1,62 @@
+# 画面の正本（基本設計工程）— SCR-01〜06。displays でデータ項目を表示する。
+
+- id: scr-01
+  name: 空き状況照会
+  screen_id: SCR-01
+  screen_type: 照会
+  description: 日付・階・時間帯で会議室の空きを検索して表示する。主な利用者は一般社員。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- id: scr-02
+  name: 予約入力
+  screen_id: SCR-02
+  screen_type: 入力
+  description: 会議室・日時・人数・目的を入力して予約を登録する。主な利用者は一般社員。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- id: scr-03
+  name: 予約一覧
+  screen_id: SCR-03
+  screen_type: 一覧
+  description: 自分の予約または会議室単位の予約を一覧表示する。主な利用者は一般社員。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- id: scr-04
+  name: 予約詳細・変更
+  screen_id: SCR-04
+  screen_type: 入力
+  description: 既存予約の内容を表示し、変更・取消を行う。主な利用者は一般社員。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- id: scr-05
+  name: 承認待ち一覧
+  screen_id: SCR-05
+  screen_type: 一覧
+  description: 特別会議室の承認待ち予約を一覧し、承認／却下する。主な利用者は会議室管理者。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- id: scr-06
+  name: 利用実績
+  screen_id: SCR-06
+  screen_type: 帳票
+  description: 会議室ごと・月ごとの予約件数と延べ利用時間を出力する。主な利用者は会議室管理者。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧

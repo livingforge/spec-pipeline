@@ -1,0 +1,219 @@
+# データ辞書（データ項目の正本）— 型・桁・値域(domain)の正本。
+# 共有列（ROOM_ID/USER_ID/RSV_ID）は 1 データ項目とし、複数テーブルの has-column から参照する。
+
+- id: di-room-id
+  name: 会議室ID
+  type: 文字列
+  length: 8
+  domain: '例: R305'
+  description: 会議室を一意に識別するID。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+- id: di-room-name
+  name: 会議室名
+  type: 文字列
+  length: 40
+  description: 会議室の名称。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+- id: di-floor-no
+  name: 階
+  type: 数値
+  length: 2
+  domain: 3〜8
+  description: 会議室の所在階。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+- id: di-capacity
+  name: 定員
+  type: 数値
+  length: 3
+  description: 着席可能な人数。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+- id: di-room-type
+  name: 種別
+  type: 文字列
+  length: 4
+  domain: 一般 / 特別
+  description: 会議室の種別。特別は承認が必要。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+- id: di-rsv-id
+  name: 予約ID
+  type: 文字列
+  length: 12
+  domain: RSV＋連番
+  description: 予約を一意に識別するID。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-use-date
+  name: 利用日
+  type: 日付
+  description: 予約対象の利用日。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-start-time
+  name: 開始時刻
+  type: 文字列
+  length: 5
+  domain: HH:MM
+  description: 予約の開始時刻。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-end-time
+  name: 終了時刻
+  type: 文字列
+  length: 5
+  domain: HH:MM
+  description: 予約の終了時刻。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-headcount
+  name: 利用人数
+  type: 数値
+  length: 3
+  description: 予約の利用人数。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-purpose
+  name: 利用目的
+  type: 文字列
+  length: 40
+  description: 予約の利用目的。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-user-id
+  name: 利用者ID
+  type: 文字列
+  length: 8
+  description: 社員番号。社員マスタ由来で、予約では予約者を表す。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 利用者
+- id: di-status
+  name: 状態
+  type: 文字列
+  length: 6
+  domain: 仮予約 / 確定 / 取消
+  description: 予約の状態。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: di-user-name
+  name: 氏名
+  type: 文字列
+  length: 40
+  description: 利用者の氏名。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 利用者
+- id: di-dept-name
+  name: 所属部署
+  type: 文字列
+  length: 40
+  description: 利用者の所属部署（任意）。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 利用者
+- id: di-mail
+  name: メールアドレス
+  type: 文字列
+  length: 80
+  description: 通知先メールアドレス（任意）。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 利用者
+- id: di-apv-id
+  name: 承認ID
+  type: 文字列
+  length: 12
+  description: 承認記録を一意に識別するID。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 承認
+- id: di-approver-id
+  name: 承認者ID
+  type: 文字列
+  length: 8
+  description: 承認を行った会議室管理者のID。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 承認
+- id: di-result
+  name: 承認結果
+  type: 文字列
+  length: 4
+  domain: 承認 / 却下
+  description: 承認の結果。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 承認
+- id: di-apv-time
+  name: 承認日時
+  type: 日付
+  description: 承認を行った日時（任意）。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 承認
+- id: di-biko
+  name: 備考
+  type: 文字列
+  length: 100
+  description: 予約入力の備考（任意、全角100文字以内）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力

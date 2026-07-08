@@ -1,6 +1,6 @@
 """FactStore (仕様・要件ファクト) と Library の sync / search のユニットテスト。
 
-新設エージェント (doc-indexer / spec-extractor / doc-qa) が依存する
+新設エージェント (corpus-builder / fact-extractor / grounded-qa) が依存する
 データ操作を、docextract の実行やネットワークなしで検証する。
 """
 

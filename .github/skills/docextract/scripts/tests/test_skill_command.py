@@ -1,6 +1,6 @@
 """venv コマンド (skill_launcher) の解決・委譲仕様を固定する。
 
-`specdb` / `docextract` コマンドの実体。cwd から上方向にスキルが解決できる
+`contextdb` / `docextract` コマンドの実体。cwd から上方向にスキルが解決できる
 最初のディレクトリを探して __main__.py へ委譲する探索係で、ここでは
 モジュールを直接 import して in-process で検証する。
 リポジトリ (tests/) とスキルバンドル (scripts/tests/) の両レイアウトに対応する。
@@ -66,28 +66,28 @@ def test_resolves_upward_and_dispatches(launcher, tmp_path, monkeypatch, capsys)
     assert "ARGS:hello|--flag" in capsys.readouterr().out
 
 
-def test_specdb_gets_default_root_from_subdir(launcher, tmp_path, monkeypatch,
+def test_contextdb_gets_default_root_from_subdir(launcher, tmp_path, monkeypatch,
                                               capsys):
-    _fake_skill(tmp_path, "specdb")
-    (tmp_path / ".specdb").mkdir()
+    _fake_skill(tmp_path, "contextdb")
+    (tmp_path / ".contextdb").mkdir()
     sub = tmp_path / "docs"
     sub.mkdir()
     monkeypatch.chdir(sub)
     with pytest.raises(SystemExit):
-        launcher.main("specdb", ["engine"])
+        launcher.main("contextdb", ["engine"])
     out = capsys.readouterr().out
     assert "--root" in out
-    assert str(tmp_path / ".specdb") in out
+    assert str(tmp_path / ".contextdb") in out
 
 
-def test_specdb_keeps_explicit_root(launcher, tmp_path, monkeypatch, capsys):
-    _fake_skill(tmp_path, "specdb")
-    (tmp_path / ".specdb").mkdir()
+def test_contextdb_keeps_explicit_root(launcher, tmp_path, monkeypatch, capsys):
+    _fake_skill(tmp_path, "contextdb")
+    (tmp_path / ".contextdb").mkdir()
     sub = tmp_path / "docs"
     sub.mkdir()
     monkeypatch.chdir(sub)
     with pytest.raises(SystemExit):
-        launcher.main("specdb", ["engine", "--root", "elsewhere"])
+        launcher.main("contextdb", ["engine", "--root", "elsewhere"])
     out = capsys.readouterr().out
     assert out.count("--root") == 1
     assert "elsewhere" in out
@@ -111,10 +111,10 @@ def test_python_package_at_root_is_not_a_skill(launcher, tmp_path, monkeypatch,
 def test_installed_command_if_present(tmp_path):
     """共有 venv に install 済みなら、実コマンドでも動くことを確認する。"""
     exe = Path(sys.executable).parent / (
-        "specdb.exe" if sys.platform == "win32" else "specdb"
+        "contextdb.exe" if sys.platform == "win32" else "contextdb"
     )
     if not exe.is_file():
-        pytest.skip("specdb コマンドが venv に未インストール")
+        pytest.skip("contextdb コマンドが venv に未インストール")
     import subprocess
     (tmp_path / "metamodel.yaml").write_text(
         "version: 1\n"

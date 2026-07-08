@@ -332,7 +332,7 @@ def _launcher_hash(launcher_dir: Path) -> str:
 
 def _ensure_launcher(uv: str, venv: Path, venv_python: Path,
                      launcher_dir: Path, boot_log: Path) -> None:
-    """venv コマンド (specdb / docextract) を提供する探索係パッケージを install する。
+    """venv コマンド (contextdb / docextract) を提供する探索係パッケージを install する。
 
     launcher/ はスキル scripts/ に同梱される数十行のローカルパッケージで、
     install されるのは「cwd から上方探索して展開済みスキルへ委譲する」コマンド
@@ -347,7 +347,7 @@ def _ensure_launcher(uv: str, venv: Path, venv_python: Path,
     if have == want:
         return
     _gate(
-        "スキル起動コマンド (specdb / docextract / docsummary) を共有仮想環境へインストール",
+        "スキル起動コマンド (contextdb / docextract / docsummary) を共有仮想環境へインストール",
         [f"uv pip install --python {venv_python} {launcher_dir}"],
         note="同梱のローカルパッケージのみ (大きな依存のダウンロードはありません)。",
     )
@@ -393,7 +393,7 @@ def ensure_env(script: Path, requirements: Path, skill: str = "docextract") -> N
              " (OCR/表検出モデルは実行時に別途取得)。",
     )
 
-    # venv コマンド (specdb / docextract) の探索係を install する。
+    # venv コマンド (contextdb / docextract) の探索係を install する。
     _ensure_launcher(uv, venv, venv_python, script.parent / "launcher", boot_log)
 
     # 共有 venv の python で本体を実行し直す。os.exec* は Windows で呼び出し元が

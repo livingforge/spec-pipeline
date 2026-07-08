@@ -1,0 +1,335 @@
+# 画面 → データ項目「表示する」関係。SCR-02 は画面項目定義、他画面は画面の表示内容を接地。
+
+- type: displays
+  from: scr-02
+  to: di-room-id
+  note: 会議室はプルダウンで必須。空き状況照会で選んだ会議室を初期表示する。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-use-date
+  note: 利用日は日付で必須。当日以降のみ選択可、土日祝は選択不可。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-start-time
+  note: 開始時刻はプルダウンで必須。8:00〜20:30 を30分刻みで選択する。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-end-time
+  note: 終了時刻はプルダウンで必須。開始時刻より後で、開始からの差は最長4時間。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-headcount
+  note: 利用人数は数値で必須。1以上、会議室の定員以下。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-purpose
+  note: 利用目的はテキストで必須。全角40文字以内。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-user-id
+  note: 予約者は表示のみ。ログイン中の社員を自動表示する。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-02
+  to: di-biko
+  note: 備考はテキストで任意。全角100文字以内。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- type: displays
+  from: scr-01
+  to: di-use-date
+  note: 検索条件（利用日）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-01
+  to: di-floor-no
+  note: 検索条件（階）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-01
+  to: di-start-time
+  note: 検索条件（時間帯・開始）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-01
+  to: di-end-time
+  note: 検索条件（時間帯・終了）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-01
+  to: di-room-name
+  note: 検索結果（空き会議室）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-01
+  to: di-capacity
+  note: 検索結果（定員）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-03
+  to: di-room-name
+  note: 一覧表示（会議室名）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-03
+  to: di-use-date
+  note: 一覧表示（利用日）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-03
+  to: di-start-time
+  note: 一覧表示（開始時刻）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-03
+  to: di-end-time
+  note: 一覧表示（終了時刻）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-03
+  to: di-purpose
+  note: 一覧表示（利用目的）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-03
+  to: di-status
+  note: 一覧表示（状態）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-room-name
+  note: 既存予約の内容表示。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-use-date
+  note: 変更対象（利用日）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-start-time
+  note: 変更対象（開始時刻）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-end-time
+  note: 変更対象（終了時刻）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-headcount
+  note: 変更対象（利用人数）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-purpose
+  note: 変更対象（利用目的）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-user-id
+  note: 予約者（表示のみ）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-04
+  to: di-status
+  note: 予約の状態。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-room-name
+  note: 承認待ち一覧（会議室名）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-use-date
+  note: 承認待ち一覧（利用日）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-start-time
+  note: 承認待ち一覧（開始時刻）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-end-time
+  note: 承認待ち一覧（終了時刻）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-user-id
+  note: 承認待ち一覧（予約者）。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-status
+  note: 予約の状態。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-05
+  to: di-result
+  note: 承認／却下の結果。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-06
+  to: di-room-name
+  note: 会議室ごとに予約件数・延べ利用時間を集計して出力する。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: displays
+  from: scr-06
+  to: di-floor-no
+  note: 会議室の階。
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧

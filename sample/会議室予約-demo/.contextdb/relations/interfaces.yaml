@@ -1,0 +1,20 @@
+# 外部インターフェース → エンティティ「連携する」関係。
+
+- type: interfaces
+  from: if-01
+  to: ent-user
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5
+- type: interfaces
+  from: if-02
+  to: ent-reservation
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5
+- type: interfaces
+  from: if-03
+  to: ent-reservation
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5

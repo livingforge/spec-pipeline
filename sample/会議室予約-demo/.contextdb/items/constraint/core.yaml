@@ -1,0 +1,12 @@
+# 制約・前提の正本（プロジェクト固有種別）。基本設計書の前提にも反映する。
+
+- id: con-0001
+  statement: 対象は本社ビル3〜8階の会議室（全24室）である
+  status: review
+  source:
+    doc: 01_業務要求メモ_docx_9038bb5b
+- id: con-0002
+  statement: 社員情報は既存の社員マスタから取り込み、本システムでは社員を新規登録しない
+  status: review
+  source:
+    doc: 01_業務要求メモ_docx_9038bb5b

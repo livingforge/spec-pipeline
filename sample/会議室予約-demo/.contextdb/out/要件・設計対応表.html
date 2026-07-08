@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>要件・設計対応表</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #b8bcc0;
+         font-family: "MS PGothic", "MS Pゴシック", "Yu Gothic UI", Meiryo, sans-serif;
+         font-size: 12px; line-height: 1.55; color: #000; }
+  .book { max-width: 1180px; margin: 0 auto; padding: 18px 18px 64px; }
+
+  /* ワークシート: 白地 + Excel 方眼紙風の薄い格子 */
+  .sheet { display: none; position: relative; min-height: 640px;
+           padding: 26px 30px; margin-bottom: 18px;
+           border: 1px solid #7f7f7f; box-shadow: 3px 3px 8px rgba(0,0,0,.3);
+           background-color: #fff;
+           background-image: linear-gradient(#ececec 1px, transparent 1px),
+                             linear-gradient(90deg, #ececec 1px, transparent 1px);
+           background-size: 20px 20px; }
+  .sheet.active { display: block; }
+
+  /* 罫線だらけの表 */
+  table.xl { border-collapse: collapse; width: 100%; background: #fff; }
+  table.xl th, table.xl td { border: 1px solid #7f7f7f; padding: 3px 7px;
+                             vertical-align: top; text-align: left; }
+  table.xl th { background: #d9ead3; text-align: center; font-weight: bold; }
+  td.c, th.c { text-align: center; }
+  td.num { text-align: right; }
+
+  /* シート先頭のヘッダー枠（文書名・シート名・文書番号・版）。
+     table-layout: fixed + 各セルの %幅で、内容に依らず全シートで横幅比率を固定する */
+  table.sheet-head { margin-bottom: 14px; table-layout: fixed; }
+  table.sheet-head th { background: #c6d9b0; }
+  table.sheet-head td { overflow: hidden; text-overflow: ellipsis; }
+
+  /* 章番号つき見出し */
+  h2.sec { font-size: 14px; margin: 16px 0 6px; padding: 3px 10px;
+           border-left: 6px solid #538135; background: #ebf1de; }
+  h3.subsec { font-size: 12px; margin: 14px 0 4px; padding: 1px 8px;
+              border-left: 4px solid #9bbb59; background: #f4f8ec; }
+
+  /* 概要枠（項目:値の縦型） */
+  table.kv { width: auto; min-width: 60%; margin: 6px 0 10px; }
+  table.kv th { width: 130px; background: #c6d9b0; font-weight: normal; }
+  table.kv td { min-width: 260px; }
+
+  /* 前書き・説明文（方眼の上に白裏地で載せる） */
+  .prose { background: #fff; border: 1px solid #7f7f7f; padding: 8px 14px;
+           margin: 6px 0 10px; max-width: 72em; }
+  .prose p { margin: 4px 0; }
+
+  /* 目次: 行クリックで該当シートへ */
+  .goto { cursor: pointer; }
+  tr.goto:hover td { background: #eaf3e2; }
+  .hint { font-size: 11px; color: #666; margin: 6px 0 0; }
+
+  /* 節形式（規則・ルールの記事枠）。ID・出典は従属表示 */
+  article.article { background: #fff; border: 1px solid #7f7f7f;
+                    padding: 6px 12px 8px; margin: 0 0 10px; }
+  article.article h3.subsec { margin-top: 2px; }
+  article.article p { margin: 4px 0; }
+  p.meta { font-size: 11px; color: #666; border-top: 1px dashed #aaa;
+           margin-top: 8px; padding-top: 4px; }
+  .idtag { font-family: Consolas, "Courier New", monospace; font-size: 10px;
+           color: #888; }
+
+  /* 図（白裏地 + キャプション） */
+  figure.fig { background: #fff; border: 1px solid #7f7f7f; margin: 8px 0 12px;
+               padding: 10px; text-align: center; overflow-x: auto; }
+  figure.fig figcaption { font-size: 11px; color: #555; margin-top: 6px; }
+  svg.diagram, svg.wf { max-width: 100%; }
+  svg text { font-family: inherit; font-size: 11px; fill: #000; }
+  svg .box { fill: #fff; stroke: #538135; stroke-width: 1.2; }
+  svg .edge { stroke: #7f7f7f; }
+  svg .sub { font-size: 9px; fill: #777; }
+  svg .coltitle { font-weight: bold; }
+  svg .label { font-size: 10px; fill: #333; }
+  svg.wf .frame { fill: #fff; stroke: #555; }
+  svg.wf .titlebar { fill: #dce6f1; stroke: #555; }
+  svg.wf .wftitle { font-size: 12px; font-weight: bold; }
+  svg.wf .area { fill: #fdfdfd; stroke: #999; stroke-dasharray: 3 2; }
+  svg.wf .btn { fill: #f0f0f0; stroke: #555; }
+  svg.wf .th { fill: #d9ead3; stroke: #7f7f7f; }
+  svg.wf .cell { fill: #fff; stroke: #bbb; }
+
+  /* 状態のセル色（Excel の条件付き書式風） */
+  .st-draft      { background: #f2f2f2; }
+  .st-review     { background: #fff2cc; }
+  .st-approved   { background: #fff; }
+  .st-deprecated { background: #f2f2f2; color: #808080; text-decoration: line-through; }
+
+  /* 出典セル: ホバーで原文（evidence）をツールチップ表示 */
+  td.src { color: #1f4e79; cursor: help; }
+
+  /* 表紙 */
+  .cover-sheet { padding-top: 40px; }
+  .hanko-wrap { display: flex; justify-content: flex-end; }
+  table.hanko { border-collapse: collapse; }
+  table.hanko th { width: 74px; border: 1px solid #000; background: #d9ead3;
+                   padding: 3px; text-align: center; font-weight: normal; }
+  table.hanko td { height: 74px; border: 1px solid #000; background: #fff;
+                   text-align: center; vertical-align: middle; }
+  .stamp { display: inline-block; width: 54px; height: 54px; line-height: 54px;
+           border: 2.5px solid #d33a2c; border-radius: 50%; color: #d33a2c;
+           font-size: 12px; font-weight: bold; transform: rotate(-8deg);
+           background: rgba(255,255,255,.85); }
+  .cover-body { display: flex; flex-direction: column; align-items: center;
+                padding-top: 70px; }
+  .cover-title { border: 3px double #000; background: #fff; padding: 26px 60px;
+                 font-size: 30px; font-weight: bold; letter-spacing: .25em; }
+  table.cover-meta { border-collapse: collapse; margin-top: 48px; }
+  table.cover-meta th { width: 110px; border: 1px solid #000; background: #d9ead3;
+                        padding: 5px 10px; font-weight: normal; text-align: center; }
+  table.cover-meta td { width: 240px; border: 1px solid #000; background: #fff;
+                        padding: 5px 10px; text-align: center; }
+  .cover-note { margin-top: 44px; color: #444; }
+
+  /* シートタブ（Excel 風・画面下部固定） */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+            display: flex; flex-wrap: wrap; gap: 2px; padding: 0 10px 4px;
+            background: #e6e6e6; border-top: 1px solid #7f7f7f; }
+  .tabbar button { border: 1px solid #999; border-top: none; cursor: pointer;
+                   background: #f4f4f4; color: #333; font: inherit;
+                   padding: 4px 14px 5px; border-radius: 0 0 7px 7px; }
+  .tabbar button.active { background: #fff; font-weight: bold; color: #000;
+                          border-bottom: 3px solid #217346; }
+
+  /* 印刷: タブを消し、全シートを A4 横で順に出す */
+  @media print {
+    body { background: #fff; }
+    .book { max-width: none; padding: 0; }
+    .tabbar { display: none; }
+    .hint { display: none; }
+    .sheet { display: block; min-height: 0; margin: 0; padding: 0 0 8mm;
+             border: none; box-shadow: none; background-image: none;
+             page-break-after: always; }
+    .sheet:last-of-type { page-break-after: auto; }
+  }
+  @page { size: A4 landscape; margin: 12mm; }
+</style>
+</head>
+<body>
+<main class="book">
+
+
+<section class="sheet cover-sheet" data-name="表紙">
+  <div class="hanko-wrap"><table class="hanko">
+  <tr><th>承認</th><th>審査</th><th>作成</th></tr>
+  <tr><td></td><td></td><td><span class="stamp">自動</span></td></tr>
+</table>
+</div>
+  <div class="cover-body">
+    <div class="cover-title">要件・設計対応表</div>
+    <table class="cover-meta">
+<tr><th>発行日</th><td>2026-07-09</td></tr>    </table>
+  </div>
+</section>
+
+
+<section class="sheet" data-name="改訂履歴">
+  <table class="xl sheet-head">
+    <tr>
+      <th style="width:7%">文書名</th><td style="width:40%">要件・設計対応表</td>
+      <th style="width:7%">シート</th><td style="width:19%">改訂履歴</td>
+    </tr>
+  </table>
+  <table class="xl">
+  <tr>
+    <th style="width:8%">版数</th><th style="width:13%">日付</th>
+    <th>変更内容</th><th style="width:14%">変更者</th>
+  </tr>
+  <tr>
+    <td class="c">1.0</td><td class="c">2026-07-09</td>
+    <td>初版（データ版 unknown から自動生成）</td><td class="c">specdb</td>
+  </tr>
+</table>
+
+
+</section>
+
+<section class="sheet" data-name="目次">
+  <table class="xl sheet-head">
+    <tr>
+      <th style="width:7%">文書名</th><td style="width:40%">要件・設計対応表</td>
+      <th style="width:7%">シート</th><td style="width:19%">目次</td>
+    </tr>
+  </table>
+  <table class="xl">
+  <tr><th style="width:8%">章</th><th style="width:32%">内容</th><th>概要</th></tr>
+  <tr class="goto" data-goto="1. 要件・設計対応">
+    <td class="c">1</td><td>1. 要件・設計対応</td><td>要件→基本設計→詳細設計→メソッドの対応（V字トレース）</td>
+  </tr>
+  <tr class="goto" data-goto="2. カバレッジ">
+    <td class="c">2</td><td>2. カバレッジ</td><td>設計に落ちていない要件（ギャップ）の集計</td>
+  </tr>
+</table>
+<p class="hint">行をクリックすると該当シートへ移動します（画面下部のシートタブでも移動できます）。</p>
+
+
+</section>
+
+<section class="sheet" data-name="1. 要件・設計対応">
+  <table class="xl sheet-head">
+    <tr>
+      <th style="width:7%">文書名</th><td style="width:40%">要件・設計対応表</td>
+      <th style="width:7%">シート</th><td style="width:19%">1. 要件・設計対応</td>
+    </tr>
+  </table>
+  <h2 class="sec">1　要件・設計対応</h2>
+<table class="xl">
+  <tr>
+    <th style="width:26%">要件</th>
+    <th>実現する設計要素<br>(realizes)</th>
+    <th>詳細化元の基本設計<br>(refines先)</th>
+    <th>メソッド<br>(has-method)</th>
+    <th style="width:8%">状態</th>
+  </tr>
+  <tr>
+    <td>F-01　空き状況照会〔機能〕</td>
+    <td>空き状況照会<br>AvailabilityService</td>
+    <td>空き状況照会</td>
+    <td>AvailabilityService#searchAvailableRooms(SearchCond cond): List&lt;Room&gt;、AvailabilityService#isOverlapping(RoomId room, TimeSlot slot): boolean</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-02　予約登録〔機能〕</td>
+    <td>予約入力<br>ReservationController<br>ReservationService<br>ReservationRepository<br>ReservationValidator</td>
+    <td>予約入力、予約一覧、予約詳細・変更、予約</td>
+    <td>ReservationService#createReservation(ReservationInput in): ReservationId、ReservationService#cancelReservation(ReservationId id, UserId by): void、ReservationService#changeReservation(ReservationId id, ReservationInput in): void、ReservationRepository#insert(Reservation r): void、ReservationValidator#validate(ReservationInput in): ValidationResult</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-03　予約変更〔機能〕</td>
+    <td>予約詳細・変更<br>ReservationController<br>ReservationService</td>
+    <td>予約入力、予約一覧、予約詳細・変更、予約</td>
+    <td>ReservationService#createReservation(ReservationInput in): ReservationId、ReservationService#cancelReservation(ReservationId id, UserId by): void、ReservationService#changeReservation(ReservationId id, ReservationInput in): void</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-04　予約取消〔機能〕</td>
+    <td>予約詳細・変更<br>ReservationController<br>ReservationService</td>
+    <td>予約入力、予約一覧、予約詳細・変更、予約</td>
+    <td>ReservationService#createReservation(ReservationInput in): ReservationId、ReservationService#cancelReservation(ReservationId id, UserId by): void、ReservationService#changeReservation(ReservationId id, ReservationInput in): void</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-05　予約一覧確認〔機能〕</td>
+    <td>予約一覧</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-06　予約承認・確定〔機能〕</td>
+    <td>承認待ち一覧<br>ApprovalService</td>
+    <td>承認待ち一覧、承認</td>
+    <td>ApprovalService#approve(ReservationId id, UserId approver): void</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-07　利用実績集計〔機能〕</td>
+    <td>利用実績</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-08　空き状況照会からの予約遷移〔機能〕</td>
+    <td>空き状況照会</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-09　予約登録後の一覧遷移〔機能〕</td>
+    <td>予約入力</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-10　予約一覧から詳細への遷移〔機能〕</td>
+    <td>予約一覧</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-11　予約詳細からの取消遷移〔機能〕</td>
+    <td>予約詳細・変更</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>F-12　承認操作と予約確定〔機能〕</td>
+    <td>承認待ち一覧</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-approved">実現</td>  </tr>
+  <tr>
+    <td>NFR-01　空き状況照会の応答時間〔非機能〕</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-review">ギャップ</td>  </tr>
+  <tr>
+    <td>NFR-02　同時利用者数〔非機能〕</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-review">ギャップ</td>  </tr>
+  <tr>
+    <td>NFR-03　稼働時間〔非機能〕</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-review">ギャップ</td>  </tr>
+  <tr>
+    <td>NFR-04　利用環境・認証〔非機能〕</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-review">ギャップ</td>  </tr>
+  <tr>
+    <td>NFR-05　操作履歴の記録〔非機能〕</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+<td class="c st-review">ギャップ</td>  </tr>
+</table>
+
+</section>
+
+<section class="sheet" data-name="2. カバレッジ">
+  <table class="xl sheet-head">
+    <tr>
+      <th style="width:7%">文書名</th><td style="width:40%">要件・設計対応表</td>
+      <th style="width:7%">シート</th><td style="width:19%">2. カバレッジ</td>
+    </tr>
+  </table>
+  <h2 class="sec">2　カバレッジ</h2>
+<table class="xl kv">
+<tr><th>要件総数</th><td>17</td></tr><tr><th>設計に落ちている</th><td>12</td></tr><tr><th>ギャップ</th><td>5</td></tr></table>
+
+<table class="xl">
+  <tr><th style="width:14%">要件ID</th><th style="width:30%">要件名</th><th>状況</th></tr>
+  <tr class="st-review">
+    <td class="c">NFR-01</td>
+    <td>空き状況照会の応答時間〔非機能〕</td>
+    <td>realizes 関係なし（基本設計/詳細設計に未展開）</td>
+  </tr>
+  <tr class="st-review">
+    <td class="c">NFR-02</td>
+    <td>同時利用者数〔非機能〕</td>
+    <td>realizes 関係なし（基本設計/詳細設計に未展開）</td>
+  </tr>
+  <tr class="st-review">
+    <td class="c">NFR-03</td>
+    <td>稼働時間〔非機能〕</td>
+    <td>realizes 関係なし（基本設計/詳細設計に未展開）</td>
+  </tr>
+  <tr class="st-review">
+    <td class="c">NFR-04</td>
+    <td>利用環境・認証〔非機能〕</td>
+    <td>realizes 関係なし（基本設計/詳細設計に未展開）</td>
+  </tr>
+  <tr class="st-review">
+    <td class="c">NFR-05</td>
+    <td>操作履歴の記録〔非機能〕</td>
+    <td>realizes 関係なし（基本設計/詳細設計に未展開）</td>
+  </tr>
+</table>
+
+</section>
+
+</main>
+<nav class="tabbar" id="tabbar"></nav>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var sheets = [].slice.call(document.querySelectorAll('.sheet'));
+    var bar = document.getElementById('tabbar');
+    var buttons = [];
+    function activate(i) {
+      sheets.forEach(function (x, j) { x.classList.toggle('active', i === j); });
+      buttons.forEach(function (b, j) { b.classList.toggle('active', i === j); });
+      window.scrollTo(0, 0);
+    }
+    sheets.forEach(function (s, i) {
+      var b = document.createElement('button');
+      b.textContent = s.getAttribute('data-name');
+      b.addEventListener('click', function () { activate(i); });
+      bar.appendChild(b);
+      buttons.push(b);
+    });
+    if (sheets.length) { activate(0); }
+    /* data-goto="<シート名>" を持つ要素（目次の行など）で移動できる */
+    document.body.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest ? e.target.closest('[data-goto]') : null;
+      if (!t) { return; }
+      var name = t.getAttribute('data-goto');
+      sheets.forEach(function (s, i) {
+        if (s.getAttribute('data-name') === name) { activate(i); }
+      });
+    });
+  });
+</script>
+</body>
+</html>

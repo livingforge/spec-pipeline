@@ -3,8 +3,8 @@
 docextract が各文書ごとに出力する ``result.json`` を取り込み、**文書種別 (doctype)** を
 付与して、**単一の集約 JSON** (既定 ``.docextract/store/library.json``) に束ねる。
 文書種別は「その資料が要件定義書か・設計書か・議事録か」といった**現状把握のための
-分類**で、doc-indexer が付ける。要約のような人間向け終端フォーマットは持たない
-(仕様の中身は spec-extractor が facts.json に、横断検索は search が担う)。
+分類**で、corpus-builder が付ける。要約のような人間向け終端フォーマットは持たない
+(仕様の中身は fact-extractor が facts.json に、横断検索は search が担う)。
 
 - データ操作:  add / sync / set_doctype / remove
 - データ参照:  get / list / query / stats / export / search
@@ -212,7 +212,7 @@ class Library:
 
         ``target`` が result.json のパスなら登録 (既存なら抽出フィールドのみ更新し、
         文書種別は保持) してストアを保存、登録済み ID ならそのまま参照する。
-        返り値に、文書種別の付与 (doc-indexer) や仕様抽出 (spec-extractor) に必要な
+        返り値に、文書種別の付与 (corpus-builder) や仕様抽出 (fact-extractor) に必要な
         材料 (種別候補・preview・本文抜粋・次の一手) を含める。
         """
         path = Path(target)
@@ -309,7 +309,7 @@ class Library:
     def sync_from_manifest(self, manifest_path: str | Path) -> dict[str, Any]:
         """抽出マニフェスト (output/index.json) の全文書を一括で登録/更新する。
 
-        doc-indexer が「フォルダを抽出 → まとめて索引化」を1コマンドで行うための
+        corpus-builder が「フォルダを抽出 → まとめて索引化」を1コマンドで行うための
         複合操作。既存の文書種別は :meth:`add_from_result` が保持する。
         result.json が失われている項目はスキップして報告する。
         返り値は ``{"added": [...], "updated": [...], "skipped": [...]}``。
@@ -341,7 +341,7 @@ class Library:
     ) -> list[dict[str, Any]]:
         """登録済み文書の result.json 本文を横断検索し、出典付きヒットを返す。
 
-        doc-qa が「資料のどこに何が書いてあるか」を出典 (doc_id + location) 付きで
+        grounded-qa が「資料のどこに何が書いてあるか」を出典 (doc_id + location) 付きで
         答えるための接地 (grounding) 手段。各ヒットは
         ``{"doc_id", "source", "location", "kind", "score", "snippet"}``。座標情報を
         保ったまま、テキスト・表・画像 OCR の要素単位で一致を探す。

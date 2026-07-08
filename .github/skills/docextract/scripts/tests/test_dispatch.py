@@ -53,11 +53,11 @@ def test_setup_check_reports_state():
     """setup --check は無変更の状態確認。構築済み環境（テストは共有 venv で
     走る前提）では exit 0 と各項目の報告を返す。"""
     venv_scripts = Path(sys.executable).parent
-    if not (venv_scripts / ("specdb.exe" if sys.platform == "win32" else "specdb")).is_file():
+    if not (venv_scripts / ("contextdb.exe" if sys.platform == "win32" else "contextdb")).is_file():
         pytest.skip("共有 venv が未構築（venv コマンド不在）")
     r = run_cli("setup", "--check")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "venv コマンド specdb" in r.stdout
+    assert "venv コマンド contextdb" in r.stdout
     assert "構築済み" in r.stdout
 
 

@@ -1,0 +1,56 @@
+# メタモデル — このプロジェクトで使えるアイテム種別・属性・関係の宣言
+#
+# このスキャフォルドは全社標準パック jp-sier-std を継承する「消費側プロジェクト」の
+# 雛形。要件定義〜基本設計〜詳細設計の標準種別（requirement / screen / entity /
+# data-item / business-rule / external-interface / module / method）と工程間トレース
+# （realizes / refines / has-method）はパックから来るので、ここには書かない。
+#
+# プロジェクト固有の追加・厳格化だけをこのファイルに足す（緩和は STD-E1xx で拒否）:
+#   - 新しい種別・関係の追加は自由（例: batch-job）
+#   - 標準種別への属性追加・required 追加・unique 追加などの「厳格化」も可
+#   - パックの解決順: <root>/packs/ → 展開済みスキル同梱 packs/ → CONTEXTDB_PACK_PATH
+#
+# 共通コア属性（全アイテム・全関係が自動的に持つ。ここには書かない）:
+#   id / status (draft|review|approved|deprecated) / source { doc, location, evidence }
+#
+# 名前空間（サブシステム分割。任意）:
+#   namespaces: { pay: 決済, charge: チャージ } と宣言すると
+#   items/<名前空間>/<種別>/ と relations/<名前空間>/ が使え、ID に <名前空間>: が付く。
+
+version: 1
+extends: jp-sier-std@1.1
+
+item_types:
+
+  # 標準種別への属性追加（厳格化）— パックの data-item に値域メモ domain を足す。
+  data-item:
+    attributes:
+      domain: { kind: string }
+
+  # プロジェクト固有の新種別 — 標準パックに受け皿の無い「制約・前提」と「用語」を
+  # ファクトのまま正本化するために追加する（緩和ではなく追加。STD-E1xx の対象外）。
+  # 4 標準文書には描画されないが、正本データとして保持し visualize で参照できる。
+  constraint:
+    label: 制約・前提
+    label_field: statement
+    id_prefix: con-
+    attributes:
+      statement: { kind: string, required: true }
+
+  term:
+    label: 用語
+    label_field: term
+    id_prefix: term-
+    attributes:
+      term:       { kind: string, required: true, unique: true }
+      definition: { kind: string, required: true }
+
+relation_types:
+
+  # プロジェクト固有の新関係 — メソッドが実装・保証する業務ルールへのトレース。
+  # 標準の realizes は method を from に取れず to も requirement 限定のため、
+  # ファクトの refs（method の realizes → BR-xxx）を丸めずに受ける専用関係を追加する。
+  enforces:
+    label: 実装する（業務ルール）
+    from: method
+    to: business-rule

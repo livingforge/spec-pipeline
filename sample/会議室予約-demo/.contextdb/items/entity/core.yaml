@@ -1,0 +1,115 @@
+# エンティティ（テーブル）の正本。columns は has-column 関係の埋め込み記述。
+
+- id: ent-room
+  name: 会議室
+  physical_name: MRR_ROOM
+  description: 予約対象の会議室マスタである。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+  columns:
+  - item: di-room-id
+    physical_name: ROOM_ID
+    pk: true
+    required: true
+  - item: di-room-name
+    physical_name: ROOM_NAME
+    required: true
+  - item: di-floor-no
+    physical_name: FLOOR_NO
+    required: true
+  - item: di-capacity
+    physical_name: CAPACITY
+    required: true
+  - item: di-room-type
+    physical_name: ROOM_TYPE
+    required: true
+- id: ent-reservation
+  name: 予約
+  physical_name: MRR_RESERVATION
+  description: 会議室の予約1件を表す。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+  columns:
+  - item: di-rsv-id
+    physical_name: RSV_ID
+    pk: true
+    required: true
+  - item: di-room-id
+    physical_name: ROOM_ID
+    required: true
+    note: 会議室（MRR_ROOM）への外部キー
+  - item: di-use-date
+    physical_name: USE_DATE
+    required: true
+  - item: di-start-time
+    physical_name: START_TIME
+    required: true
+  - item: di-end-time
+    physical_name: END_TIME
+    required: true
+  - item: di-headcount
+    physical_name: HEADCOUNT
+    required: true
+  - item: di-purpose
+    physical_name: PURPOSE
+    required: true
+  - item: di-user-id
+    physical_name: USER_ID
+    required: true
+    note: 予約者。利用者（MRR_USER）への外部キー
+  - item: di-status
+    physical_name: STATUS
+    required: true
+- id: ent-user
+  name: 利用者
+  physical_name: MRR_USER
+  description: 社員マスタから取り込んだ利用者を表す。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 利用者
+  columns:
+  - item: di-user-id
+    physical_name: USER_ID
+    pk: true
+    required: true
+  - item: di-user-name
+    physical_name: USER_NAME
+    required: true
+  - item: di-dept-name
+    physical_name: DEPT_NAME
+  - item: di-mail
+    physical_name: MAIL
+- id: ent-approval
+  name: 承認
+  physical_name: MRR_APPROVAL
+  description: 特別会議室予約の承認記録である。
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 承認
+  columns:
+  - item: di-apv-id
+    physical_name: APV_ID
+    pk: true
+    required: true
+  - item: di-rsv-id
+    physical_name: RSV_ID
+    required: true
+    note: 予約（MRR_RESERVATION）への外部キー
+  - item: di-approver-id
+    physical_name: APPROVER_ID
+    required: true
+  - item: di-result
+    physical_name: RESULT
+    required: true
+  - item: di-apv-time
+    physical_name: APV_TIME

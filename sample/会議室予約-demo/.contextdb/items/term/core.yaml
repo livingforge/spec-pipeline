@@ -1,0 +1,26 @@
+# 用語集の正本（プロジェクト固有種別）。
+
+- id: term-0001
+  term: 会議室
+  definition: 予約の対象となる部屋。階・定員・種別（一般／特別）を持つ
+  status: review
+  source:
+    doc: 01_業務要求メモ_docx_9038bb5b
+- id: term-0002
+  term: 特別会議室
+  definition: 役員会議室など、予約に管理者の承認が必要な会議室
+  status: review
+  source:
+    doc: 01_業務要求メモ_docx_9038bb5b
+- id: term-0003
+  term: 予約枠
+  definition: 30分単位で区切った時間の最小単位
+  status: review
+  source:
+    doc: 01_業務要求メモ_docx_9038bb5b
+- id: term-0004
+  term: 会議室管理者
+  definition: 総務部の担当者。特別会議室の承認と、全予約の代理取消ができる
+  status: review
+  source:
+    doc: 01_業務要求メモ_docx_9038bb5b

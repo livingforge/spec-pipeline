@@ -207,7 +207,7 @@ python -m docagent list --json --limit 10 --offset 10  # 続き
 
 ## Windows での呼び出し（PowerShell / Python subprocess）
 
-コンソールスクリプト（`docextract` / `docagent` / `specdb` / `docsummary`）や
+コンソールスクリプト（`docextract` / `docagent` / `contextdb` / `docsummary`）や
 `.venv\Scripts\` 配下の実行ファイルを Windows から呼ぶときの注意。
 
 ### PowerShell からの呼び出し

@@ -1,0 +1,135 @@
+# 業務ルールの正本。applies_to は constrains 関係の埋め込み。
+# BR-001〜006 は method から enforces される中核ルール。重複ファクトは source を複数持たせて集約。
+
+- id: br-001
+  rule_id: BR-001
+  statement: 同一会議室・同一時間帯の重複予約を禁止する
+  applies_to:
+  - di-room-id
+  - di-use-date
+  - di-start-time
+  - di-end-time
+  status: review
+  source:
+  - doc: 04_業務ルール_外部連携_docx_be8764a5
+  - doc: 01_業務要求メモ_docx_9038bb5b
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- id: br-002
+  rule_id: BR-002
+  statement: 予約可能な時間帯は平日 8:00〜21:00 に限る
+  applies_to:
+  - di-use-date
+  - di-start-time
+  - di-end-time
+  status: review
+  source:
+  - doc: 04_業務ルール_外部連携_docx_be8764a5
+  - doc: 01_業務要求メモ_docx_9038bb5b
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- id: br-003
+  rule_id: BR-003
+  statement: 1 件の予約時間は最長 4 時間までとする
+  applies_to:
+  - di-start-time
+  - di-end-time
+  status: review
+  source:
+  - doc: 04_業務ルール_外部連携_docx_be8764a5
+  - doc: 01_業務要求メモ_docx_9038bb5b
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+- id: br-004
+  rule_id: BR-004
+  statement: 利用人数は会議室の定員を超えてはならない
+  applies_to:
+  - di-headcount
+  - di-capacity
+  status: review
+  source:
+  - doc: 04_業務ルール_外部連携_docx_be8764a5
+  - doc: 01_業務要求メモ_docx_9038bb5b
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面項目_予約入力
+  - doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: br-005
+  rule_id: BR-005
+  statement: 取消・変更は開始時刻の 1 時間前までに限る
+  applies_to:
+  - di-status
+  - di-start-time
+  status: review
+  source:
+  - doc: 04_業務ルール_外部連携_docx_be8764a5
+  - doc: 01_業務要求メモ_docx_9038bb5b
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- id: br-006
+  rule_id: BR-006
+  statement: 種別が「特別」の会議室は、承認されるまで予約が確定しない
+  applies_to:
+  - di-room-type
+  - di-status
+  status: review
+  source:
+  - doc: 04_業務ルール_外部連携_docx_be8764a5
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- id: br-007
+  rule_id: BR-007
+  statement: 取消・変更ができるのは予約者本人と会議室管理者のみ
+  applies_to:
+  - di-user-id
+  - di-status
+  status: review
+  source:
+  - doc: 01_業務要求メモ_docx_9038bb5b
+  - doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- id: br-008
+  rule_id: BR-008
+  statement: 予約ID（RSV_ID）は「RSV＋連番」で採番する
+  applies_to:
+  - di-rsv-id
+  status: review
+  source:
+    doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 予約
+- id: br-009
+  rule_id: BR-009
+  statement: 会議室の階（FLOOR_NO）は 3〜8 の範囲である
+  applies_to:
+  - di-floor-no
+  status: review
+  source:
+  - doc: 03_データ項目_テーブル_xlsx_f9a3a2ad
+    location:
+      sheet: 会議室
+  - doc: 01_業務要求メモ_docx_9038bb5b
+- id: br-010
+  rule_id: BR-010
+  statement: IF-01 で取り込んだ社員のみがログインでき、予約できる
+  applies_to:
+  - di-user-id
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5
+- id: br-011
+  rule_id: BR-011
+  statement: 退職者は社員マスタ取り込み対象から外れるため、翌営業日以降はログインできなくなる
+  applies_to:
+  - di-user-id
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5

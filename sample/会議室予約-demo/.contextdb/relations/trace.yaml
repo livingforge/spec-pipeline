@@ -1,0 +1,314 @@
+# 工程間トレース — realizes（設計→要件）/ refines（詳細設計→基本設計）/ has-method。
+
+- type: realizes
+  from: scr-01
+  to: req-f01
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-02
+  to: req-f02
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-04
+  to: req-f03
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-04
+  to: req-f04
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-03
+  to: req-f05
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-05
+  to: req-f06
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-06
+  to: req-f07
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面一覧
+- type: realizes
+  from: scr-01
+  to: req-f08
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- type: realizes
+  from: scr-02
+  to: req-f09
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- type: realizes
+  from: scr-03
+  to: req-f10
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- type: realizes
+  from: scr-04
+  to: req-f11
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- type: realizes
+  from: scr-05
+  to: req-f12
+  status: review
+  source:
+    doc: 02_画面一覧_項目_xlsx_29441a79
+    location:
+      sheet: 画面遷移
+- type: realizes
+  from: mod-01
+  to: req-f02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-01
+  to: req-f03
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-01
+  to: req-f04
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-02
+  to: req-f02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-02
+  to: req-f03
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-02
+  to: req-f04
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-03
+  to: req-f01
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-04
+  to: req-f02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-05
+  to: req-f02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: realizes
+  from: mod-06
+  to: req-f06
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-01
+  to: scr-02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-01
+  to: scr-03
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-01
+  to: scr-04
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-02
+  to: ent-reservation
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-03
+  to: scr-01
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-04
+  to: ent-reservation
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-05
+  to: scr-02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-06
+  to: scr-05
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: refines
+  from: mod-06
+  to: ent-approval
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-02
+  to: mth-01
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-02
+  to: mth-02
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-02
+  to: mth-03
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-03
+  to: mth-04
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-03
+  to: mth-05
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-05
+  to: mth-06
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-06
+  to: mth-07
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- type: has-method
+  from: mod-04
+  to: mth-08
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧

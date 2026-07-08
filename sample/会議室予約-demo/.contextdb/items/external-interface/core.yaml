@@ -1,0 +1,29 @@
+# 外部インターフェースの正本。interfaces でエンティティと連携する。
+
+- id: if-01
+  name: 社員マスタ連携
+  if_id: IF-01
+  direction: 入力
+  protocol: 日次バッチ・CSV
+  description: 人事の社員マスタから在籍者を取り込み、利用者を更新する。
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5
+- id: if-02
+  name: 予約確定通知
+  if_id: IF-02
+  direction: 出力
+  protocol: メール
+  description: 予約が確定した時点で予約者へメールを都度送信する。
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5
+- id: if-03
+  name: 館内サイネージ連携
+  if_id: IF-03
+  direction: 出力
+  protocol: API（5分間隔）
+  description: 当日の会議室ごとの予約状況を館内サイネージへ送信する。
+  status: review
+  source:
+    doc: 04_業務ルール_外部連携_docx_be8764a5

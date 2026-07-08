@@ -1,0 +1,131 @@
+# メソッド → 業務ルール「実装する」関係（プロジェクト固有）。
+# ファクトの refs（method の realizes → BR-xxx）を決定的に写したもの。
+
+- type: enforces
+  from: mth-01
+  to: br-001
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-01
+  to: br-002
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-01
+  to: br-003
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-01
+  to: br-004
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-01
+  to: br-006
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-02
+  to: br-005
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-03
+  to: br-001
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-03
+  to: br-003
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-03
+  to: br-004
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-03
+  to: br-005
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-04
+  to: br-002
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-05
+  to: br-001
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-06
+  to: br-002
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-06
+  to: br-003
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-06
+  to: br-004
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様
+- type: enforces
+  from: mth-07
+  to: br-006
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: メソッド仕様

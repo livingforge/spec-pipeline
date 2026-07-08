@@ -1,0 +1,68 @@
+# モジュール（クラス）の正本（詳細設計工程）。has-method でメソッドを、refines で基本設計を、realizes で要件を持つ。
+
+- id: mod-01
+  module_id: MOD-01
+  class_name: ReservationController
+  layer: Controller
+  package: app.reservation.web
+  description: 予約系の画面リクエストを受けサービスへ委譲する。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- id: mod-02
+  module_id: MOD-02
+  class_name: ReservationService
+  layer: Service
+  package: app.reservation.service
+  description: 予約の登録・変更・取消の業務ロジックを担う。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- id: mod-03
+  module_id: MOD-03
+  class_name: AvailabilityService
+  layer: Service
+  package: app.reservation.service
+  description: 空き状況の検索と重複判定を行う。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- id: mod-04
+  module_id: MOD-04
+  class_name: ReservationRepository
+  layer: Repository
+  package: app.reservation.dao
+  description: 予約テーブルへの永続化を担う。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- id: mod-05
+  module_id: MOD-05
+  class_name: ReservationValidator
+  layer: Validator
+  package: app.reservation.service
+  description: 予約入力値と業務ルールの検証を行う。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧
+- id: mod-06
+  module_id: MOD-06
+  class_name: ApprovalService
+  layer: Service
+  package: app.approval.service
+  description: 特別会議室予約の承認・却下を担う。
+  status: review
+  source:
+    doc: 05_クラス_メソッド仕様_xlsx_d89ed185
+    location:
+      sheet: クラス一覧

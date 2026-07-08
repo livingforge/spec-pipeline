@@ -5,18 +5,19 @@
 # 公開したいものだけ明示的に許可する
 !/.claude/
 !/.github/
-!/.specdb/
+!/.contextdb/
 !/README.md
 !/.gitignore
 !/.gitattributes
 !/.vscode/
 /.vscode/*
 !/.vscode/settings.json
+!/sample
 
 # 許可フォルダ内でも、これらは公開しない
 __pycache__/
 *.pyc
 build/
 *.egg-info/
-# 生成ビュー (specdb generate/visualize で再生成できる) は追跡しない
-/.specdb/out/
+# 生成ビュー (contextdb generate/visualize で再生成できる) は追跡しない
+/.contextdb/out/

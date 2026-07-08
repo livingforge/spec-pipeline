@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""venv コマンド `specdb` / `docextract` / `docsummary` の実体 — cwd から上方探索して委譲する
+"""venv コマンド `contextdb` / `docextract` / `docsummary` の実体 — cwd から上方探索して委譲する
 
 共有 venv に console script として install され（_bootstrap.py が担当）、
 venv が有効なら任意のディレクトリで
 
-    specdb engine
+    contextdb engine
     docextract extract --dir 資料/ -r
 
 のように起動できる。コードの正本は install しない。実行時にカレント
@@ -16,8 +16,8 @@ venv が有効なら任意のディレクトリで
 の順で見つかった `__main__.py` へ委譲するだけの探索係なので、
 zip 再展開でスキルを更新してもコマンドの再インストールは不要。
 
-specdb のデータルート既定 (./.specdb) は cwd 依存のため、--root 未指定で
-サブディレクトリから実行された場合は <root>/.specdb を自動補完する。
+contextdb のデータルート既定 (./.contextdb) は cwd 依存のため、--root 未指定で
+サブディレクトリから実行された場合は <root>/.contextdb を自動補完する。
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def _force_utf8_io() -> None:
     """非 UTF-8 コンソール (Windows 既定の cp932 等) でも非 ASCII 出力で
     クラッシュしないよう、標準出力/標準エラーを UTF-8・エラー耐性つきに再設定する。
 
-    venv コマンド specdb / docextract は日本語や em-dash (—) を出すため、素の
+    venv コマンド contextdb / docextract は日本語や em-dash (—) を出すため、素の
     cp932 コンソールでは UnicodeEncodeError になりうる。launcher は独立した
     install 対象 (本体パッケージに依存しない) なので、ここに自己完結で持つ。
     ``PYTHONIOENCODING=utf-8`` を毎回設定するのと同じ効果を利用者に意識させず効かせる。
@@ -83,15 +83,15 @@ def _resolve_upward(name: str, start: Path) -> tuple[Path, Path] | None:
 
 
 def _with_default_root(argv: list[str], root: Path) -> list[str]:
-    """specdb ツールのデータルート既定 (./.specdb) を cwd 非依存にする補完。
+    """contextdb ツールのデータルート既定 (./.contextdb) を cwd 非依存にする補完。
 
-    サブコマンドがあり、--root 未指定で、cwd に .specdb が無く、
-    プロジェクトルートに .specdb がある場合だけ --root を付け足す。
+    サブコマンドがあり、--root 未指定で、cwd に .contextdb が無く、
+    プロジェクトルートに .contextdb がある場合だけ --root を付け足す。
     """
     if not argv or argv[0].startswith("-") or "--root" in argv:
         return argv
-    default = root / ".specdb"
-    if (Path.cwd() / ".specdb").is_dir() or not default.is_dir():
+    default = root / ".contextdb"
+    if (Path.cwd() / ".contextdb").is_dir() or not default.is_dir():
         return argv
     return [*argv, "--root", str(default)]
 
@@ -108,7 +108,7 @@ def main(name: str, argv: list[str]) -> int:
         )
         return 2
     root, target = resolved
-    if name == "specdb":
+    if name == "contextdb":
         argv = _with_default_root(argv, root)
     old_argv = sys.argv[:]
     sys.argv = [str(target), *argv]
@@ -124,8 +124,8 @@ def main(name: str, argv: list[str]) -> int:
     return 0
 
 
-def main_specdb() -> int:
-    return main("specdb", sys.argv[1:])
+def main_contextdb() -> int:
+    return main("contextdb", sys.argv[1:])
 
 
 def main_docextract() -> int:
@@ -138,7 +138,7 @@ def main_docsummary() -> int:
     return main("docsummary", sys.argv[1:])
 
 
-def main_spec_reconcile() -> int:
-    """venv コマンド `spec-reconcile`。独立スキル spec-reconcile へ委譲する
-    (実体の specreconcile パッケージは spec-reconcile スキルに同梱される)。"""
-    return main("spec-reconcile", sys.argv[1:])
+def main_fact_reconcile() -> int:
+    """venv コマンド `fact-reconcile`。独立スキル fact-reconcile へ委譲する
+    (実体の factreconcile パッケージは fact-reconcile スキルに同梱される)。"""
+    return main("fact-reconcile", sys.argv[1:])

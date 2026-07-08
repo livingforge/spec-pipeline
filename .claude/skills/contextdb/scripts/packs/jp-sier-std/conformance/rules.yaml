@@ -1,0 +1,7 @@
+# 機械生成（contextdb pack build）。正本は packs-src/jp-sier-std/items/conformance-rule/。直接編集しない。
+require_documents: ["basic-design"]
+attribute_rules:
+  - {"attribute": "description", "level": "error", "type": "screen", "when_status": ["review", "approved"]}
+  - {"attribute": "description", "level": "warn", "type": "entity", "when_status": ["approved"]}
+  - {"attribute": "description", "level": "error", "type": "external-interface", "when_status": ["review", "approved"]}
+status_rules: {"baseline_requires": "approved"}
