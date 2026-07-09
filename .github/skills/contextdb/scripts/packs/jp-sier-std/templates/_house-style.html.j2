@@ -46,10 +46,15 @@
            background-size: 20px 20px; }
   .sheet.active { display: block; }
 
-  /* 罫線だらけの表 */
-  table.xl { border-collapse: collapse; width: 100%; background: #fff; }
+  /* 罫線だらけの表。table-layout: fixed で各列の %幅を厳守する（既定の auto だと
+     %幅はヒント扱いになり、英字シグネチャ等の長い文字列を含む列が幅を横取りして、
+     幅の余った列が日本語 1 文字幅まで潰れ＝セルが縦長になる）。長い英字・記号は
+     word-break で列内に折り返す */
+  table.xl { border-collapse: collapse; width: 100%; background: #fff;
+             table-layout: fixed; }
   table.xl th, table.xl td { border: 1px solid #7f7f7f; padding: 3px 7px;
-                             vertical-align: top; text-align: left; }
+                             vertical-align: top; text-align: left;
+                             word-break: break-word; overflow-wrap: anywhere; }
   table.xl th { background: #d9ead3; text-align: center; font-weight: bold; }
   td.c, th.c { text-align: center; }
   td.num { text-align: right; }
@@ -66,8 +71,8 @@
   h3.subsec { font-size: 12px; margin: 14px 0 4px; padding: 1px 8px;
               border-left: 4px solid #9bbb59; background: #f4f8ec; }
 
-  /* 概要枠（項目:値の縦型） */
-  table.kv { width: auto; min-width: 60%; margin: 6px 0 10px; }
+  /* 概要枠（項目:値の縦型）。2 列固定なので内容に合わせて自動幅にする */
+  table.kv { width: auto; min-width: 60%; margin: 6px 0 10px; table-layout: auto; }
   table.kv th { width: 130px; background: #c6d9b0; font-weight: normal; }
   table.kv td { min-width: 260px; }
 

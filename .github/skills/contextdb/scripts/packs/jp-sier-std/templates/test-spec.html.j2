@@ -79,9 +79,9 @@
 {% if lv_cases %}
 {{ ex.subsec('2.' ~ loop.index, level ~ 'テスト') }}
 <table class="xl">
-  <tr><th style="width:11%">テストID</th><th style="width:20%">名称</th>
-      <th style="width:19%">前提条件</th><th>テスト手順</th>
-      <th style="width:20%">期待結果</th><th style="width:15%">検証対象</th></tr>
+  <tr><th style="width:9%">テストID</th><th style="width:16%">名称</th>
+      <th style="width:17%">前提条件</th><th style="width:24%">テスト手順</th>
+      <th style="width:18%">期待結果</th><th style="width:16%">検証対象</th></tr>
   {% for c in lv_cases %}
   {% set verified = store.relations_of('verifies', src=c.id)|map(attribute='dst')|map('item_label')|join('、') %}
   <tr>
