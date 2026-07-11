@@ -1,0 +1,22 @@
+{
+  "_note": "USD per 1,000,000 tokens. これは正本の単価表です。Anthropic の最新公開価格に対して定期的に検証してください（cache_read=入力×0.1 / cache_write_5m=入力×1.25 / cache_write_1h=入力×2 が算出根拠）。表に無いモデルはトークンだけ集計しコストは unknown 扱いになります。",
+  "version": "2026-07-11",
+  "currency": "USD",
+  "verified": true,
+  "models": {
+    "claude-opus-4-8":   {"input": 5.0,  "output": 25.0, "cache_read": 0.5,  "cache_write_5m": 6.25,  "cache_write_1h": 10.0},
+    "claude-opus-4-7":   {"input": 5.0,  "output": 25.0, "cache_read": 0.5,  "cache_write_5m": 6.25,  "cache_write_1h": 10.0},
+    "claude-opus-4-6":   {"input": 5.0,  "output": 25.0, "cache_read": 0.5,  "cache_write_5m": 6.25,  "cache_write_1h": 10.0},
+    "claude-fable-5":    {"input": 10.0, "output": 50.0, "cache_read": 1.0,  "cache_write_5m": 12.5,  "cache_write_1h": 20.0},
+    "claude-mythos-5":   {"input": 10.0, "output": 50.0, "cache_read": 1.0,  "cache_write_5m": 12.5,  "cache_write_1h": 20.0},
+    "claude-sonnet-5":   {"input": 3.0,  "output": 15.0, "cache_read": 0.3,  "cache_write_5m": 3.75,  "cache_write_1h": 6.0},
+    "claude-sonnet-4-6": {"input": 3.0,  "output": 15.0, "cache_read": 0.3,  "cache_write_5m": 3.75,  "cache_write_1h": 6.0},
+    "claude-haiku-4-5":  {"input": 1.0,  "output": 5.0,  "cache_read": 0.1,  "cache_write_5m": 1.25,  "cache_write_1h": 2.0}
+  },
+  "aliases": {
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5",
+    "claude-opus-4-5-20251101": "claude-opus-4-5",
+    "claude-sonnet-4-5-20250929": "claude-sonnet-4-5"
+  },
+  "copilot_premium_request_usd": 0.04
+}
