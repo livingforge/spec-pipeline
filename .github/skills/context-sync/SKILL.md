@@ -1,6 +1,6 @@
 ---
 name: context-sync
-description: Sync implementation changes into .contextdb, the project's spec-as-data single source of truth. sync_check.py enumerates drift candidates (changed files vs spec items, inventory, source freshness); you judge which are spec changes and apply them via a mutate.py plan (auto-numbered IDs, status review enforced, transactional rollback), pass machine validation (error 0), regenerate the views, and report the pending review list from history.py. Use after implementing/changing/removing a feature, or when asked to "contextdb を更新 / 仕様データに反映 / context-sync". Run it as the final step of implementation work so the spec data never drifts behind the code.
+description: Sync implementation changes into .contextdb, the project's spec-as-data single source of truth: enumerate drift candidates, judge which are real spec changes, apply them as a reviewed mutate plan, pass machine validation (error 0), and regenerate the views. Use after implementing/changing/removing a feature, or when asked to "contextdb を更新 / 仕様データに反映 / context-sync". Run it as the final step of implementation work so the spec data never drifts behind the code.
 ---
 
 # context-sync — 実装差分を .contextdb（設計データの正本）へ同期する
@@ -8,6 +8,10 @@ description: Sync implementation changes into .contextdb, the project's spec-as-
 このプロジェクトの設計データの正本は `.contextdb/`（items/ + relations/、YAML）である。
 実装だけ進んで正本が古くなるのを防ぐため、機能の追加・変更・廃止のあとに
 この手順で `.contextdb` を更新する（実装作業の締めくくりに実行する）。
+
+ライセンス（MIT）・変更履歴・依存・前提とする安全性の担保は
+[package-meta/context-sync/](../../package-meta/context-sync/)（CHANGELOG.md /
+dependencies.md / GOVERNANCE.md / threat-model.md）を参照。
 
 手順は可能な限り機械化されている。判断が要るのは
 **「この実装変更は仕様の変化か」の判定と、説明文・出典の文章化だけ**で、
@@ -18,9 +22,7 @@ description: Sync implementation changes into .contextdb, the project's spec-as-
 - 正本は `.contextdb/items/` と `.contextdb/relations/`。`out/` は生成ビュー（直接編集しない）
 - 使える語彙（種別・属性・関係）は `.contextdb/metamodel.yaml` の宣言がすべて
 - コマンドは venv の console script `contextdb`（`--root` 省略時は自動でプロジェクトの
-  `.contextdb` を使う。venv 未 activate なら `.venv/Scripts/contextdb`（Windows）/
-  `.venv/bin/contextdb`（macOS/Linux）の形）。未 install の環境では
-  `python .github/skills/contextdb <サブコマンド>` で同じ
+  `.contextdb` を使う。呼び出し形の詳細は contextdb スキル参照）
 - 棚卸し・ドリフト検出の規則は `.contextdb/sync.yaml` に宣言されている
 
 ## 手順
@@ -126,18 +128,4 @@ contextdb history --uncommitted   # 未コミットの意味的変更一覧
   レビュー対象とその隣接だけの関係グラフを確認できることを添える
 - 仕様影響なしと判断した場合は、その判断根拠（sync_check の結果を添える）
 
-## レビューの運用（参考）
-
-レビュー担当が `out/contextdb.html` の「レビュー中」表示で対象を確認し、承認されたら
-
-```bash
-contextdb mutate approve <id または 関係:from->to>
-```
-
-で `approved` へ更新 → 再検証 → ビュー再生成する。
-
-## CI ゲート（任意）
-
-`sync_check.py --strict` は error 級の検出（unregistered / vanished / dead-path /
-dead-doc）があると exit 1 になるため、「実装を変えたのに正本が同期されていない」
-状態を CI や pre-commit で機械的に止められる。
+承認（`approve`）・CI ゲート（`sync-check --strict` で exit 1）の運用は contextdb スキル参照。

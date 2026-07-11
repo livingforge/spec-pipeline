@@ -1,10 +1,14 @@
 ---
 name: docsummary
-description: Summarize extracted/registered documents with an LLM. The output structure is fixed (metadata table + category + body), so instead of a format you define the summary perspective (summary_guide.md) and a category taxonomy (summary_categories.json; the LLM picks one, normalized like doctypes). Select targets by document id, source folder (--dir), unsummarized/stale only (--pending), or all; freshness is tracked by content hash + spec hash. Supports OpenAI / Azure OpenAI / Gemini / Anthropic with API keys kept in .env (never printed). Use when asked to "要約 / summarize / サマリ作成 / カテゴリー分類 / 未要約の文書をまとめて". Requires docextract extraction + docagent registration first, and an LLM API key configured via docsummary config.
+description: Summarize extracted/registered documents with an LLM into a fixed structure (metadata table + category + body); you define the summary perspective (summary_guide.md) and category taxonomy (summary_categories.json). Select targets by id, source folder (--dir), unsummarized/stale only (--pending), or all. Supports OpenAI / Azure OpenAI / Gemini / Anthropic with API keys kept in .env (never printed). Use when asked to "要約 / summarize / サマリ作成 / カテゴリー分類 / 未要約の文書をまとめて". Needs documents already extracted (docextract → docagent) and an LLM API key.
 license: MIT
 ---
 
 # docsummary — 登録済み文書を LLM で要約する
+
+ライセンス（MIT）・変更履歴・依存・脅威モデル（秘密の扱い・外部送信）は
+[package-meta/docsummary/](../../package-meta/docsummary/)（CHANGELOG.md /
+dependencies.md / GOVERNANCE.md / threat-model.md）を参照。
 
 docextract で抽出し docagent で索引化した文書を LLM で要約する。要約は
 **パース済み文書情報に付加する固定構造**（メタ表 + カテゴリー + 本文）で
@@ -12,17 +16,16 @@ docextract で抽出し docagent で索引化した文書を LLM で要約する
 **要約の観点**と**カテゴリー（既定の統制語彙）**の 2 つで、どちらを変えても
 要約は作り直し対象（stale）になる。鮮度は内容ハッシュ + 要約仕様ハッシュで追跡する。
 
-- 実行体はこの docsummary スキルに同梱（`.claude/skills/docsummary/scripts/docsummary/`）。
-  依存する docextract / docagent パッケージは同梱せず、同じプロジェクトに展開された
-  **兄弟スキル docextract** を実行時参照する（docextract スキルが必要）。
-  venv コマンド **`docsummary`** として任意のディレクトリから実行できる
-  （venv 未 activate なら `.venv/Scripts/docsummary`（Windows）/
-  `.venv/bin/docsummary`（macOS/Linux）、venv 構築前は
-  `python .claude/skills/docsummary run ...` で同じ）
+- venv コマンド **`docsummary`**。同じプロジェクトに展開済みの
+  **docextract スキルが必要**（実行時に参照する）
 - 対応プロバイダ: **openai / azure (Azure OpenAI) / gemini / anthropic**。
   追加ライブラリ不要（標準ライブラリのみで REST API を呼ぶ）
 - 秘密情報（API キー）は **`.env`（既定）または環境変数**で渡す。
   ツールは値を表示・保存しない
+
+共有 venv の console script として任意のディレクトリから実行できる。venv 未 activate なら
+`.venv/Scripts/<コマンド>`（Windows）/ `.venv/bin/<コマンド>`（macOS/Linux）で呼ぶ。venv 構築前は
+`python .claude/skills/docsummary <サブコマンド>` でも同じ。
 
 ## 前提
 

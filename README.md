@@ -158,7 +158,7 @@ python scripts\build_skill.py        # --no-zip で zip 作成を省略
 |--------|------|
 | `.claude/skills/docextract/` `.github/skills/docextract/` | SKILL.md・docs/・scripts/ (本体パッケージ + テスト同梱、自己完結) |
 | `.claude/agents/*.md` `.github/agents/*.agent.md` | corpus-builder / fact-extractor / grounded-qa の各エージェント定義 (GitHub は `*.agent.md` 拡張子) |
-| `.claude/package-meta/docextract/` `.github/package-meta/docextract/` | LICENSE (MIT)・CHANGELOG.md・dependencies.md (依存ライセンス一覧) |
+| `.claude/package-meta/<スキル名>/` `.github/package-meta/<スキル名>/` | 各スキルの実行時動作に直接関係しないガバナンス/メタ文書 (LICENSE (MIT)・CHANGELOG.md・dependencies.md・GOVERNANCE.md・threat-model.md)。`src/skills/packs/<スキル名>/` を足すだけで生成される (全スキル: docextract / contextdb / docsummary / fact-reconcile / agent-usage / context-sync) |
 | `dist/docextract-skill.zip` | 上記をまとめた配布物 (展開先リポジトリのルートに解凍するだけで導入完了) |
 
 SKILL.md とエージェント .md は「共通 body + プラットフォーム別フロントマター」から

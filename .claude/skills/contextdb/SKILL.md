@@ -1,10 +1,14 @@
 ---
 name: contextdb
-description: Manage specifications as data (the single source of truth) instead of Word/Excel documents - a metamodel-driven YAML store of spec items and relations with machine validation (required attrs, cardinality, uniqueness, orphans), generated Markdown design docs, baseline diff reports, and a self-contained interactive HTML graph viewer. Use when asked to "仕様をデータとして管理 / 仕様DB / 設計書を生成 / テーブル定義書・画面仕様書の自動生成 / ベースライン比較 / 変更点一覧 / 仕様の可視化 / 関係グラフ / spec as data". Requires Python 3.10+.
+description: Manage specifications as data (the single source of truth) instead of Word/Excel documents — a metamodel-driven YAML store of spec items and relations with machine validation, generated design docs, baseline diffs, and a self-contained interactive HTML graph viewer. Use when asked to "仕様をデータとして管理 / 仕様DB / 設計書を生成 / テーブル定義書・画面仕様書の自動生成 / ベースライン比較 / 変更点一覧 / 仕様の可視化 / 関係グラフ / spec as data".
 license: MIT
 ---
 
 # contextdb — 仕様をデータとして管理する
+
+ライセンス（MIT）・変更履歴・依存・脅威モデルは
+[package-meta/contextdb/](../../package-meta/contextdb/)（CHANGELOG.md /
+dependencies.md / GOVERNANCE.md / threat-model.md）を参照。
 
 「文書（Word/Excel）を正本にする」のではなく、**仕様アイテムと関係を YAML の
 データ（正本）として保存し、設計書はそこから生成されるビュー**にする仕組み。
@@ -14,7 +18,6 @@ license: MIT
   **新しい種別・関係・文書の追加にコード改修は不要**
 - 機械検証つき: ID 一意性、必須属性、enum、多重度（cardinality）、
   一意性（unique）、未定義参照、孤児検出。error があれば生成は中止され exit 1
-  （CI で PR をブロックできる）
 - すべてのアイテム・関係が出典（`source` = doc + location + evidence）を持てるので、
   既存資料からの移行でもトレーサビリティが残る
 - `history.py` が Git 履歴から変更履歴を**意味的に**再構成する（どのアイテム・関係が
@@ -71,11 +74,10 @@ cp -r .claude/skills/contextdb/scaffold .contextdb     # サンプル入り。it
 
 ## 使い方
 
-コマンドは共有 venv の console script `contextdb`（bootstrap が install。手動なら
-docextract スキル同梱の `scripts/launcher/` を pip install）。任意のディレクトリで
-動き、`--root` 未指定ならプロジェクトの `.contextdb` を自動補完する。venv 未
-activate なら `.venv/Scripts/contextdb`（Windows）/ `.venv/bin/contextdb` の形で呼ぶ。
-コマンドが未 install の環境では `python .claude/skills/contextdb <サブコマンド>` でも同じ。
+venv コマンドは **`contextdb`**。`--root` 未指定ならプロジェクトの `.contextdb` を自動補完する。
+共有 venv の console script として任意のディレクトリから実行できる。venv 未 activate なら
+`.venv/Scripts/<コマンド>`（Windows）/ `.venv/bin/<コマンド>`（macOS/Linux）で呼ぶ。venv 構築前は
+`python .claude/skills/contextdb <サブコマンド>` でも同じ。
 
 ```bash
 contextdb init                      # 空の .contextdb seed を作る（プロジェクト初期化）
@@ -106,7 +108,7 @@ contextdb mutate   apply plan.json  # 操作リストを一括適用
 - 生成物（`out/`）はビューなので直接編集しない。仕様変更は items/relations を
   直し、再生成する
 
-## 文書種別の追加（コード改修なし）
+## 文書種別の追加
 
 1. `documents/<名前>.yaml` を書く（title / output / template の 3 行。
    追加のキーはそのまま `doc` としてテンプレートへ渡る）

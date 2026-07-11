@@ -1,6 +1,6 @@
 ---
 name: docextract
-description: Extract text, tables, and images from Office documents (docx/xlsx/pptx) and PDF into structured JSON, with OCR for image-embedded text and reconstruction of tables pasted as pictures. Use when asked to "parse / extract / convert / 解析 / 抽出 / 構造化" the contents of Word, Excel, PowerPoint, or PDF files. Requires Python 3.10+.
+description: Extract text, tables, and images from Office documents (docx/xlsx/pptx) and PDF into structured JSON, with OCR for image-embedded text and reconstruction of tables pasted as pictures. Use when asked to "parse / extract / convert / 解析 / 抽出 / 構造化" the contents of Word, Excel, PowerPoint, or PDF files.
 ---
 
 # docextract

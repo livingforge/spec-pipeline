@@ -1,6 +1,6 @@
 ---
 name: agent-usage
-description: Analyze coding-agent telemetry from VS Code / local session logs and produce a token, model, tool-call, run-time, and cost summary as summary.json + a self-contained report.html. Supports Claude Code (~/.claude/projects/**/*.jsonl, cost in USD from an editable per-model pricing table) and GitHub Copilot (VS Code workspaceStorage Agent Debug Logs, cost in measured AIU / AI Units) via --agent; both include subagent (sidechain / child-session) activity. Cost and duration are not stored, so they are derived. Use when asked to "エージェントの利用状況 / トークン消費 / コスト集計 / 利用モデル / ツール呼び出し / 実行時間 / usage レポート / Claude Code や GitHub Copilot の使用量 / AIU 集計". Requires Python 3.10+, standard library only.
+description: Analyze coding-agent telemetry (Claude Code and GitHub Copilot session logs, subagents included) and produce a token, model, tool-call, run-time, and cost summary as summary.json + a self-contained report.html; choose the agent with --agent. Use when asked to "エージェントの利用状況 / トークン消費 / コスト集計 / 利用モデル / ツール呼び出し / 実行時間 / usage レポート / Claude Code や GitHub Copilot の使用量 / AIU 集計".
 license: MIT
 ---
 
@@ -13,6 +13,11 @@ license: MIT
 出力（summary.json / report.html）の形は両者で共通。コストの単位だけが異なる（Claude=
 USD、Copilot=**AIU 実測**）。
 
+Python 3.10+ の標準ライブラリのみで動き外部依存はない。ライセンス（MIT）・変更履歴・
+依存・脅威モデルは
+[package-meta/agent-usage/](../../package-meta/agent-usage/)（CHANGELOG.md /
+dependencies.md / GOVERNANCE.md / threat-model.md）を参照。
+
 ## データの出どころと重要な前提
 
 - **Claude Code** はセッションを 1 メッセージ 1 行の JSONL で
@@ -20,10 +25,9 @@ USD、Copilot=**AIU 実測**）。
   `message.usage` に入力/出力/キャッシュ書込(5m・1h)/キャッシュ読込トークンと
   `model` が入っている。
 - **コストと実行時間は保存されていない**ため算出する:
-  - コスト = トークン × モデル別単価（`scripts/pricing.json`）。キャッシュは別単価
-    （読込 = 入力×0.1 / 5m 書込 = 入力×1.25 / 1h 書込 = 入力×2）。
-  - 実行時間 = セッション内 timestamp の差分。ツール別時間は `tool_use` →
-    対応する `tool_result` のタイムスタンプを挟んで算出。
+  - コスト = トークン × モデル別単価（キャッシュは読込/書込で別単価）。単価表は後述の
+    `pricing.json`。
+  - 実行時間 = セッション内 timestamp の差分（ツール別は `tool_use`→`tool_result` 間）。
 - **サブエージェント（Task/Agent）**の内部は、新しい Claude Code（VS Code 版を含む）では
   親の `<session>.jsonl` に混ざらず `<プロジェクト>/<session>/subagents/agent-*.jsonl`
   に分離記録される（各行 `isSidechain: true`・`usage` 付き）。本スキルはこのサブ
@@ -106,13 +110,3 @@ python .claude/skills/agent-usage/scripts report --agent copilot --workspace C:/
   （呼出数・所要時間・エラー数）、`top_sessions`（コスト上位）。機械可読の正本。
 - `report.html` — 単一ファイル・外部依存なし・ライト/ダーク対応。カード＋日次コスト
   グラフ＋モデル/ツール/プロジェクト/セッションの各表。
-
-## 実装メモ
-
-- Claude Code: `collect.py`（収集）→ `report.py`（集計）→ `render.py`（HTML）。
-- GitHub Copilot: `copilot_collect.py`（Agent Debug Log 収集＋集計）→ `render.py`（共通）。
-  `report.py` が `--agent copilot` のとき `copilot_collect.build_summary` を呼ぶ。
-- `render.py` は `summary["cost_unit"]`（"USD" / "AIU"）で表示単位を切り替える共通レンダラ。
-  既定は USD なので Claude 版の出力は従来と同一。
-- Copilot の AIU は `copilotUsageNanoAiu` の**実測値**。以前フェーズ2で想定した
-  「リクエスト回数 × 単価の概算」ではなく、Agent Debug Log が消費 AIU を直接記録する。
