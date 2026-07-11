@@ -442,8 +442,17 @@ def _write_ledger(path: Path, conversations: list[dict]) -> None:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="agent-usage report", add_help=True)
+    ap.add_argument("--agent", choices=["claude-code", "copilot"], default="claude-code",
+                    help="集計対象のエージェント（既定: claude-code）")
+    # Claude Code 用
     ap.add_argument("--claude-dir")
     ap.add_argument("--pricing")
+    # GitHub Copilot 用（Agent Debug Log = VS Code workspaceStorage）
+    ap.add_argument("--storage-root", help="[copilot] VS Code workspaceStorage ルートを上書き")
+    ap.add_argument("--workspace", help="[copilot] 対象ワークスペースのフォルダパス"
+                    "（未指定なら debug-logs を持つ全ワークスペースを集計）")
+    ap.add_argument("--workspace-id", help="[copilot] workspaceStorage の id を直接指定")
+    # 共通
     ap.add_argument("--out", default="agent-usage-out")
     ap.add_argument("--days", type=int)
     ap.add_argument("--since")
@@ -453,7 +462,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json-only", action="store_true")
     args = ap.parse_args(argv)
 
-    summary = build_summary(args)
+    if args.agent == "copilot":
+        import copilot_collect  # noqa: E402
+        summary = copilot_collect.build_summary(args)
+    else:
+        summary = build_summary(args)
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -471,10 +484,12 @@ def main(argv: list[str]) -> int:
         print(f"wrote {html_path}")
 
     t = summary["totals"]
+    unit = summary.get("cost_unit", "USD")
+    cost_str = f"${t['cost_usd']:.2f}" if unit == "USD" else f"{t['cost_usd']:.2f} AIU"
     print(
         f"  sessions={t['sessions']}  messages={t['messages']}  "
         f"tokens(in/out)={t['input']:,}/{t['output']:,}  "
-        f"cost=${t['cost_usd']:.2f}"
+        f"cost={cost_str}"
         + ("" if t["cost_known"] else f" (+unknown models: {', '.join(t['unknown_models'])})")
     )
     return 0

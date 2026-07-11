@@ -33,6 +33,32 @@ def _fmt_usd_compact(n) -> str:
     return f"${n:.1f}"
 
 
+# コストの表示単位。Claude Code は USD、GitHub Copilot は AIU（実測 AI Units）。
+# render_html の冒頭で summary["cost_unit"] を反映する。既定 USD なら従来と完全一致。
+_UNIT = "USD"
+
+
+def _fmt_cost(n) -> str:
+    """コスト値を表示単位で整形。USD は $1,234.56、AIU は 1,234.56 AIU。"""
+    if _UNIT == "AIU":
+        return f"{float(n):,.2f} AIU"
+    return _fmt_usd(n)
+
+
+def _fmt_cost_compact(n) -> str:
+    """チャート軸ラベル用の短い表記。"""
+    if _UNIT != "AIU":
+        return _fmt_usd_compact(n)
+    n = float(n)
+    if n <= 0:
+        return "0"
+    if n >= 100:
+        return f"{n:,.0f}"
+    if n >= 10:
+        return f"{n:.0f}"
+    return f"{n:.1f}"
+
+
 def _fmt_dur(seconds) -> str:
     seconds = float(seconds or 0)
     if seconds < 60:
@@ -59,6 +85,11 @@ def _nice_max(v: float) -> float:
 
 
 def render_html(summary: dict, top: int = 100) -> str:
+    global _UNIT
+    _UNIT = summary.get("cost_unit", "USD")
+    agent_name = summary.get("agent_label") or (
+        "GitHub Copilot" if summary.get("agent") == "copilot" else "Claude Code")
+
     t = summary["totals"]
     rng = summary["range"]
 
@@ -66,8 +97,10 @@ def render_html(summary: dict, top: int = 100) -> str:
     notes = []
     unknown = t.get("unknown_models") or []
     if unknown:
-        notes.append(f'単価未登録のモデル: {_esc(", ".join(unknown))}')
-    if not summary.get("pricing_verified"):
+        # AIU 版では実測値を採用しているため「推定 AIU にのみ影響」と補足する。
+        suffix = "（推定 AIU にのみ影響）" if _UNIT == "AIU" else ""
+        notes.append(f'単価未登録のモデル: {_esc(", ".join(unknown))}{suffix}')
+    if _UNIT == "USD" and not summary.get("pricing_verified"):
         notes.append("単価表は未検証です（pricing.json を最新の公開価格でご確認ください）")
     sub = summary.get("subagents", {})
     if sub.get("total_calls") and not sub.get("tokens_recorded"):
@@ -94,7 +127,7 @@ def render_html(summary: dict, top: int = 100) -> str:
             _fmt_int(p["messages"]),
             _fmt_int(p["input"]),
             _fmt_int(p["output"]),
-            _fmt_usd(p["cost_usd"]) + ("" if p["cost_known"] else " *"),
+            _fmt_cost(p["cost_usd"]) + ("" if p["cost_known"] else " *"),
         ])
         for p in summary["by_project"]
     )
@@ -120,9 +153,25 @@ def render_html(summary: dict, top: int = 100) -> str:
     conv_note = f"全 {total_conv} 会話（コスト降順）・詳細アイコンで内訳を表示"
 
     subtitle = f'{_esc((rng.get("first") or "?")[:10])} 〜 {_esc((rng.get("last") or "?")[:10])}'
-    meta_line = (
-        f'source: {_esc(summary.get("source_dir"))} ・ pricing {_esc(summary.get("pricing_version"))}'
-    )
+    if _UNIT == "AIU":
+        ver = " / ".join(summary.get("copilot_versions") or [])
+        meta_line = (
+            f'source: {_esc(summary.get("source_dir"))} ・ 単位 AIU（実測 copilotUsageNanoAiu）'
+            + (f' ・ Copilot {_esc(ver)}' if ver else "")
+        )
+        footer_note = (
+            "コスト = Copilot が記録した実測 AIU（AI Units）。USD 換算はしていません。"
+            "「推定 AIU」は models.json の単価から算出した参考値です。時間はログの"
+            "タイムスタンプ差から導出した推定値です。"
+        )
+    else:
+        meta_line = (
+            f'source: {_esc(summary.get("source_dir"))} ・ pricing {_esc(summary.get("pricing_version"))}'
+        )
+        footer_note = (
+            "コスト = トークン × 単価（pricing.json から算出。保存値ではありません）。"
+            "「*」は単価未登録のモデル。時間・コストはセッション記録から導出した推定値です。"
+        )
 
     # 埋め込み JSON はチャートの日次/週次/月次トグル再集計にしか使わないため、
     # by_day だけを載せる。summary 全体（会話 334 件・タイムライン等で ~660KB）を
@@ -131,12 +180,14 @@ def render_html(summary: dict, top: int = 100) -> str:
     # <script> はテキスト（raw text）要素で HTML エンティティを復号しないため、
     # ここを _esc すると JSON.parse が &quot; 等で失敗する。エスケープは
     # </script> 破壊の防止だけに絞り、"<" を <（JSON として等価）に置換する。
-    chart_data = {"by_day": summary.get("by_day", [])}
+    chart_data = {"by_day": summary.get("by_day", []), "cost_unit": _UNIT}
     data_json = json.dumps(chart_data, ensure_ascii=False).replace("<", "\\u003c")
 
     body = _TEMPLATE.format(
         subtitle=subtitle,
         meta_line=_esc(meta_line),
+        agent_name=_esc(agent_name),
+        footer_note=_esc(footer_note),
         warn_banner=warn_banner,
         hero=hero,
         tiles=tiles,
@@ -167,7 +218,7 @@ def render_html(summary: dict, top: int = 100) -> str:
         '<!doctype html>\n<html lang="ja">\n<head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        "<title>エージェント利用状況 — Claude Code</title>\n"
+        f"<title>エージェント利用状況 — {_esc(agent_name)}</title>\n"
         + head_style
         + "</head>\n<body>\n" + body + "\n</body>\n</html>\n"
     )
@@ -177,11 +228,22 @@ def render_html(summary: dict, top: int = 100) -> str:
 # ヒーロー / タイル
 # ---------------------------------------------------------------------------
 def _hero(t: dict) -> str:
+    if _UNIT == "AIU":
+        est = float(t.get("cost_estimated_aiu") or 0)
+        note = (f'単価から推定 <b>{_fmt_cost(est)}</b>（クロスチェック）'
+                if est else 'Copilot が記録した実測 AI Units')
+        return (
+            '<div class="hero">'
+            '<div class="hero-label">総消費 AIU（実測）</div>'
+            f'<div class="hero-value">{_fmt_cost(t["cost_usd"])}</div>'
+            f'<div class="hero-note">{note}</div>'
+            '</div>'
+        )
     savings = float(t.get("cache_savings_usd") or 0)
     return (
         '<div class="hero">'
         '<div class="hero-label">総コスト（推定）</div>'
-        f'<div class="hero-value">{_fmt_usd(t["cost_usd"])}</div>'
+        f'<div class="hero-value">{_fmt_cost(t["cost_usd"])}</div>'
         f'<div class="hero-note">キャッシュにより <b>{_fmt_usd(savings)}</b> 節約済み</div>'
         '</div>'
     )
@@ -221,7 +283,7 @@ def _render_chart_bars(days: list[dict], label_fn) -> str:
     for i in range(4, -1, -1):
         val = top * i / 4
         ticks.append(
-            f'<div class="tick"><span class="tick-label">{_esc(_fmt_usd_compact(val))}</span>'
+            f'<div class="tick"><span class="tick-label">{_esc(_fmt_cost_compact(val))}</span>'
             '<span class="tick-line"></span></div>'
         )
     grid = '<div class="chart-grid">' + "".join(ticks) + "</div>"
@@ -232,7 +294,7 @@ def _render_chart_bars(days: list[dict], label_fn) -> str:
         cols.append(
             '<div class="daycol">'
             f'<div class="daybar" style="height:{h:.1f}%">'
-            f'<span class="daycost">{_esc(_fmt_usd(d["cost_usd"]))}</span></div>'
+            f'<span class="daycost">{_esc(_fmt_cost(d["cost_usd"]))}</span></div>'
             f'<span class="daylabel">{_esc(label_fn(d["date"]))}</span></div>'
         )
     bars = '<div class="daybars">' + "".join(cols) + "</div>"
@@ -253,7 +315,7 @@ def _model_section(summary: dict) -> str:
             _fmt_int(m["input"]),
             _fmt_int(m["output"]),
             _fmt_int(m["cache_read"]),
-            _fmt_usd(m["cost_usd"]) + ("" if m["cost_known"] else " *"),
+            _fmt_cost(m["cost_usd"]) + ("" if m["cost_known"] else " *"),
         ])
         for m in summary["by_model"]
     )
@@ -281,7 +343,7 @@ def _subagent_panel(summary: dict) -> str:
                 _fmt_int(x["calls"]),
                 _fmt_int(x.get("input", 0)),
                 _fmt_int(x.get("output", 0)),
-                _fmt_usd(x.get("cost_usd", 0)) + ("" if x.get("cost_known", True) else " *"),
+                _fmt_cost(x.get("cost_usd", 0)) + ("" if x.get("cost_known", True) else " *"),
                 _fmt_dur(x["total_seconds"]),
             ])
             for x in sub.get("by_type", [])
@@ -294,7 +356,7 @@ def _subagent_panel(summary: dict) -> str:
         internal_tok = sub.get("internal_input", 0) + sub.get("internal_output", 0)
         note = (
             f'<p class="note">合計 {_fmt_int(calls)} 回 ・ 内部 {_fmt_int(internal_tok)} tok ・ '
-            f'{_fmt_usd(sub.get("internal_cost_usd", 0))}（総コストに算入済み）</p>'
+            f'{_fmt_cost(sub.get("internal_cost_usd", 0))}（総コストに算入済み）</p>'
         )
         return table + _star_note(rows) + note
 
@@ -329,7 +391,7 @@ def _modal_id(c: dict) -> str:
 
 def _conv_row(c: dict) -> str:
     title = _esc(_conv_title_text(c))
-    cost = _fmt_usd(c["cost_usd"]) + ("" if c["cost_known"] else " *")
+    cost = _fmt_cost(c["cost_usd"]) + ("" if c["cost_known"] else " *")
     agent_calls = c.get("agent_calls", 0)
     agent_sub = f'<div class="c-sub">SubAgent {agent_calls}</div>' if agent_calls else ""
     return (
@@ -348,7 +410,7 @@ def _conv_row(c: dict) -> str:
 
 def _conv_modal(c: dict) -> str:
     title = _esc(_conv_title_text(c))
-    cost = _fmt_usd(c["cost_usd"]) + ("" if c["cost_known"] else " *")
+    cost = _fmt_cost(c["cost_usd"]) + ("" if c["cost_known"] else " *")
     models = _esc(" / ".join(c["models"]))
 
     stat = (
@@ -369,7 +431,7 @@ def _conv_modal(c: dict) -> str:
             _fmt_int(m["messages"]),
             _fmt_int(m["input"]),
             _fmt_int(m["output"]),
-            _fmt_usd(m["cost_usd"]) + ("" if m["cost_known"] else " *"),
+            _fmt_cost(m["cost_usd"]) + ("" if m["cost_known"] else " *"),
         ])
         for m in c.get("models_detail", [])
     )
@@ -417,7 +479,7 @@ def _timeline_item(e: dict) -> str:
         usage = ""
         if e.get("sub_msgs"):
             tok = (e.get("sub_input", 0) or 0) + (e.get("sub_output", 0) or 0)
-            cost = _fmt_usd(e.get("sub_cost", 0)) + ("" if e.get("sub_cost_known", True) else " *")
+            cost = _fmt_cost(e.get("sub_cost", 0)) + ("" if e.get("sub_cost_known", True) else " *")
             usage = f' <span class="subusage">{_fmt_int(tok)}tok · {cost}</span>'
         return (
             f'<li class="tl-agent"><span class="ttime">{t}</span> '
@@ -452,7 +514,7 @@ def _bar(value: float, maximum: float) -> str:
 
 _TEMPLATE = """<div class="wrap">
 <header>
-  <h1>エージェント利用状況 <small>Claude Code</small></h1>
+  <h1>エージェント利用状況 <small>{agent_name}</small></h1>
   <p class="sub">{subtitle}</p>
   <p class="meta">{meta_line}</p>
   {warn_banner}
@@ -512,8 +574,7 @@ _TEMPLATE = """<div class="wrap">
   {conv_star_note}
 </section>
 
-<footer><p class="note">コスト = トークン × 単価（pricing.json から算出。保存値ではありません）。
-「*」は単価未登録のモデル。時間・コストはセッション記録から導出した推定値です。</p></footer>
+<footer><p class="note">{footer_note}</p></footer>
 <script type="application/json" id="summary-data">{data_json}</script>
 </div>
 {conv_modals}
@@ -566,15 +627,19 @@ _TEMPLATE = """<div class="wrap">
     return '<div class="daychart">' + grid + bars + '</div>';
   }}
 
+  const isAiu = (summary.cost_unit === 'AIU');
+
   function formatUsd(n) {{
-    return '$' + parseFloat(n).toLocaleString('en-US', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+    const s = parseFloat(n).toLocaleString('en-US', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+    return isAiu ? (s + ' AIU') : ('$' + s);
   }}
 
   function formatUsdCompact(n) {{
-    if (n <= 0) return '$0';
-    if (n >= 100) return '$' + n.toLocaleString('en-US', {{maximumFractionDigits: 0}});
-    if (n >= 10) return '$' + n.toLocaleString('en-US', {{maximumFractionDigits: 0}});
-    return '$' + n.toFixed(1);
+    const sym = isAiu ? '' : '$';
+    if (n <= 0) return isAiu ? '0' : '$0';
+    if (n >= 100) return sym + n.toLocaleString('en-US', {{maximumFractionDigits: 0}});
+    if (n >= 10) return sym + n.toLocaleString('en-US', {{maximumFractionDigits: 0}});
+    return sym + n.toFixed(1);
   }}
 
   function niceMaxValue(v) {{
