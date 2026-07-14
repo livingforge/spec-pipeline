@@ -134,3 +134,26 @@ def test_project_filter(tmp_path):
     s = copilot_collect.build_summary(_args(root, project="does-not-match"))
     assert s["conversation_count"] == 0
     assert s["totals"]["cost_usd"] == 0.0
+
+
+def test_join_sources_truncates_to_three():
+    dirs = [f"C:/ws{i}/debug-logs" for i in range(5)]
+    text = copilot_collect._join_sources(dirs)
+    # 先頭 3 件のみ表示、残りは「…他 N 件」で省略
+    assert "C:/ws0/debug-logs" in text
+    assert "C:/ws2/debug-logs" in text
+    assert "C:/ws3/debug-logs" not in text
+    assert "…他 2 件" in text
+    # 3 件以下なら省略しない
+    assert copilot_collect._join_sources(dirs[:2]) == "C:/ws0/debug-logs ; C:/ws1/debug-logs"
+
+
+def test_source_dir_lists_only_contributing_workspaces(tmp_path):
+    root = _make_storage(tmp_path)
+    # 実データが寄与した debug-logs だけが source に載る（1 ワークスペースなので省略なし）
+    s = copilot_collect.build_summary(_args(root))
+    assert "debug-logs" in s["source_dir"]
+    assert "…他" not in s["source_dir"]
+    # project フィルタで全ワークスペースが外れたら storage_root へフォールバック
+    s2 = copilot_collect.build_summary(_args(root, project="does-not-match"))
+    assert s2["source_dir"] == str(root)

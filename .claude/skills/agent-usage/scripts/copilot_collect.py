@@ -528,6 +528,18 @@ def _workspaces(storage_root: Path, args) -> List[Tuple[str, Path]]:
     return out
 
 
+def _join_sources(dirs: List[str], limit: int = 3) -> str:
+    """source ヘッダ用に集計対象フォルダを連結する。複数ある場合は先頭 ``limit`` 件
+    （既定 3）までを見せ、残りは「…他 N 件」と省略する（無指定時の全ワークスペース走査で
+    大量のパスがヘッダを埋めるのを防ぐ）。"""
+    shown = dirs[:limit]
+    text = " ; ".join(shown)
+    extra = len(dirs) - len(shown)
+    if extra > 0:
+        text += f" ; …他 {extra} 件"
+    return text
+
+
 def build_summary(args) -> dict:
     """report.py から呼ばれる集計エントリ。Claude 版 report.build_summary と同じスキーマ
     （AIU をコスト値とし cost_unit="AIU"）の dict を返す。"""
@@ -564,9 +576,9 @@ def build_summary(args) -> dict:
     for project, debug_root in _workspaces(storage_root, args):
         if not debug_root.is_dir():
             continue
-        source_dirs.append(str(debug_root))
         if getattr(args, "project", None) and args.project not in project:
             continue
+        workspace_used = False  # 実際に 1 件でも集計に寄与したワークスペースだけ source に載せる
         for sess_dir in sorted(debug_root.iterdir()):
             if not (sess_dir / "main.jsonl").is_file():
                 continue
@@ -577,6 +589,9 @@ def build_summary(args) -> dict:
                     continue
                 if until and sdt > until:
                     continue
+            if not workspace_used:
+                source_dirs.append(str(debug_root))
+                workspace_used = True
             missing_models |= s["missing_prices"]
             if s["copilot_version"]:
                 versions.add(s["copilot_version"])
@@ -672,7 +687,7 @@ def build_summary(args) -> dict:
         "agent": "copilot",
         "agent_label": "GitHub Copilot",
         "cost_unit": "AIU",
-        "source_dir": " ; ".join(source_dirs) if source_dirs else str(storage_root),
+        "source_dir": _join_sources(source_dirs) if source_dirs else str(storage_root),
         "project_grouping": "vscode-workspace",
         "pricing_version": None,
         "pricing_verified": True,  # AIU は実測。単価未検証の警告は出さない
