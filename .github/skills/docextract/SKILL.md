@@ -67,7 +67,10 @@ docextract extract --dir <folder> -r -o <output-dir>  # recurse
 
 - Formats: `.docx` `.xlsx` `.xlsm` `.pptx` `.pdf` (wildcards ok). Legacy
   `.xls` `.doc` `.ppt` also work **on Windows with Microsoft Office installed**
-  (converted via Office COM automation; see Limitations)
+  (converted via Office COM automation; see Limitations). Source code `.py` is
+  also treated as a document (module docstring / top-level constants / classes /
+  functions become text elements with line locations) — the entry point of the
+  code-to-spec reverse pipeline for repositories without design documents
 - Each input yields `<output-dir>/<id>/` containing `result.json` and `images/`, where
   `<id>` embeds a hash of the file's absolute path so same-named files in different
   folders never collide. A manifest `<output-dir>/index.json` indexes all extractions by id.
@@ -85,6 +88,14 @@ Work with extracted results through the same launcher:
 `docextract docagent <subcommand>`. Summarize registered documents with an LLM
 via the separate **docsummary** skill (`docsummary run …`) — see that skill for
 target selection and API-key (.env) setup.
+
+For repositories without design documents, `docextract codescan --dir <src-root>`
+deterministically extracts skeleton facts (entities / data items / modules /
+methods + has-column / has-method / refines) from Python sources via `ast` —
+no LLM involved — into a facts shard that `docextract docagent facts-merge`
+integrates. Intent-level facts (functional requirements, business rules) are
+extracted separately by the @code-fact-extractor agent (LLM, human review
+required). Orchestrate the whole flow with the @codebase-mapper agent.
 
 Python API:
 

@@ -24,6 +24,7 @@ from .extractors import (
     extract_pdf,
     extract_ppt,
     extract_pptx,
+    extract_python,
     extract_xls,
     extract_xlsx,
 )
@@ -47,6 +48,10 @@ _EXTRACTORS = {
     ".xls": extract_xls,
     ".doc": extract_doc,
     ".ppt": extract_ppt,
+    # ソースコード: 設計書が無いリポジトリでは「コードが一次資料」。ソース
+    # ファイルを文書として索引・ブロック化・仕様抽出の同じ流儀に載せる
+    # （コード→仕様の逆方向パイプライン。骨格の決定論抽出は codescan が担う）。
+    ".py": extract_python,
 }
 
 SUPPORTED_EXTENSIONS = tuple(_EXTRACTORS)

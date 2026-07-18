@@ -16,8 +16,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 COMMANDS: dict[str, tuple[str, str]] = {
-    "extract": ("run_docextract.py", "Office/PDF を構造化 JSON へ抽出"),
+    "extract": ("run_docextract.py", "Office/PDF/ソースコードを構造化 JSON へ抽出"),
     "docagent": ("run_docagent.py", "集約 JSON のデータ操作 (init/sync/search/facts …)"),
+    "codescan": ("run_codescan.py", "ソースコードから骨格ファクトを決定論で洗い出す (L0)"),
     "setup": ("setup_env.py", "スキル実行環境の構築 (venv・依存・venv コマンド)"),
 }
 # 要約 (docsummary) は独立スキルへ分離した。`docsummary run …`（venv コマンド）

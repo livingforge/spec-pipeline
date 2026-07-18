@@ -140,6 +140,27 @@ def test_set_errors_on_no_match_and_incomplete_queue(store, tmp_path, capsys):
     assert store("context-set", "--docs", doc_id, "--force", "--json") == 0
 
 
+def test_set_excludes_test_and_entrypoint_doctypes_by_default(store, tmp_path, capsys):
+    """種別テスト/エントリポイントは既定でキューから除外し、除外を必ず報告する。"""
+    src_id = _register(store, tmp_path, "app.xlsx", {"s": "本文です。"})
+    tst_id = _register(store, tmp_path, "spec.xlsx", {"s": "テスト内容です。"})
+    store("set-doctype", tst_id, "テスト")
+    capsys.readouterr()
+    assert store("context-set", "--docs", src_id, tst_id, "--json") == 0
+    out = _out_json(capsys)
+    assert out["docs"] == 1
+    assert [b["doc_id"] for b in out["blocks"]] == [src_id]
+    assert [(d["id"], d["doctype"]) for d in out["excluded"]] == [(tst_id, "テスト")]
+    # 全対象が除外種別 → エラーで次の一手 (--include-doctype) を案内する
+    assert store("context-set", "--docs", tst_id, "--force", "--json") == 1
+    assert "--include-doctype" in capsys.readouterr().err
+    # --include-doctype で明示的に含められる
+    assert store("context-set", "--docs", tst_id,
+                 "--include-doctype", "テスト", "--force", "--json") == 0
+    out = _out_json(capsys)
+    assert out["docs"] == 1 and out["excluded"] == []
+
+
 # ── context-get: 払い出しとエラー分岐 ────────────────────────────
 def test_get_requires_context_set_first(store, capsys):
     assert store("context-get", "--json") == 1

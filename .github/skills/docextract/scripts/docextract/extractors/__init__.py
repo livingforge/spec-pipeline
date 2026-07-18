@@ -1,3 +1,4 @@
+from .code_extractor import extract_python
 from .docx_extractor import extract_docx
 from .legacy_com import (
     LEGACY_EXTENSIONS,
@@ -26,6 +27,7 @@ __all__ = [
     "extract_pdf",
     "extract_ppt",
     "extract_pptx",
+    "extract_python",
     "extract_xls",
     "extract_xlsx",
 ]

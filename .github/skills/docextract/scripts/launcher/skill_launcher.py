@@ -82,6 +82,12 @@ def _resolve_upward(name: str, start: Path) -> tuple[Path, Path] | None:
     return None
 
 
+# --root を受け付けないサブコマンド。init は新しいデータルートを作る側
+# （既存ルートへの補完は「未知フラグ」でヘルプ表示・exit 2 になる）、
+# aggregate は複数ルートを位置引数で受ける。ここに補完してはいけない。
+_NO_ROOT_SUBCOMMANDS = {"init", "aggregate"}
+
+
 def _with_default_root(argv: list[str], root: Path) -> list[str]:
     """contextdb ツールのデータルート既定 (./.contextdb) を cwd 非依存にする補完。
 
@@ -89,6 +95,8 @@ def _with_default_root(argv: list[str], root: Path) -> list[str]:
     プロジェクトルートに .contextdb がある場合だけ --root を付け足す。
     """
     if not argv or argv[0].startswith("-") or "--root" in argv:
+        return argv
+    if argv[0] in _NO_ROOT_SUBCOMMANDS:
         return argv
     default = root / ".contextdb"
     if (Path.cwd() / ".contextdb").is_dir() or not default.is_dir():

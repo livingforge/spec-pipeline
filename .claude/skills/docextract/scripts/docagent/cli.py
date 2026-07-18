@@ -636,9 +636,29 @@ def _print_guarded(s: str, hint: str | None = None) -> None:
     print(s)
 
 
+# 仕様抽出の対象キューから既定で除外する文書種別。テストは検証手段であって
+# 仕様の源泉ではなく、エントリポイント/bootstrap は環境配線のため、抽出すると
+# ノイズ (テスト由来の疑似要件・業務ルール) を量産する。除外は必ず件数・内訳
+# つきで報告する (silent cap 禁止)。--include-doctype で個別に解除できる。
+EXCLUDED_DOCTYPES = ("テスト", "エントリポイント")
+
+
 def cmd_context_set(args):
     lib = _load(args)
     docs = resolve_docs(lib, files=args.files, folder=args.folder, doc_ids=args.docs)
+    include = set(args.include_doctype or [])
+    excluded = [
+        d for d in docs
+        if (d.get("doctype") in EXCLUDED_DOCTYPES and d.get("doctype") not in include)
+    ]
+    docs = [d for d in docs if d not in excluded]
+    if not docs:
+        raise DocAgentError(
+            "対象がすべて既定の除外種別 ("
+            + ", ".join(sorted({d.get('doctype') or '' for d in excluded}))
+            + ") でした。テスト・エントリポイントは仕様の源泉ではないため既定で"
+            " 抽出対象になりません。含めるなら --include-doctype <種別> を付けてください"
+        )
     limit = args.max_chars if args.max_chars is not None else args.cfg["block_max_chars"]
     queue, skipped = ContextQueue.build(
         args.context, lib, docs, block_max_chars=limit, force=args.force
@@ -648,6 +668,10 @@ def cmd_context_set(args):
         "block_max_chars": limit,
         "docs": len(docs),
         "skipped": skipped,
+        "excluded": [
+            {"id": d["id"], "source": d.get("source"), "doctype": d.get("doctype")}
+            for d in excluded
+        ],
         "blocks": [
             {"id": b["id"], "doc_id": b["doc_id"], "units": b["units"], "chars": b["chars"]}
             for b in queue.blocks
@@ -660,6 +684,10 @@ def cmd_context_set(args):
             print(f"  {b['id']:32} {', '.join(b['units'])} ({b['chars']}字)")
         for s in o["skipped"]:
             print(f"  スキップ: {s['id']} ({s['reason']})")
+        if o["excluded"]:
+            print(f"  除外: {len(o['excluded'])} 文書 (既定除外種別。--include-doctype で含められる)")
+            for d in o["excluded"]:
+                print(f"    {d['id']} {d['source']} ({d['doctype']})")
 
     _emit(payload, args.json, human, hint="--max-chars を上げてブロック数を減らす")
 
@@ -1108,6 +1136,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="未完 (pending/claimed) が残っていてもキューを作り直す",
+    )
+    sp.add_argument(
+        "--include-doctype",
+        nargs="+",
+        metavar="種別",
+        help="既定で除外される文書種別 (テスト/エントリポイント) を対象に含める",
     )
     sp.set_defaults(func=cmd_context_set)
 

@@ -93,6 +93,37 @@ def test_contextdb_keeps_explicit_root(launcher, tmp_path, monkeypatch, capsys):
     assert "elsewhere" in out
 
 
+def test_contextdb_init_gets_no_default_root(launcher, tmp_path, monkeypatch,
+                                             capsys):
+    """--root を受け付けない init に自動補完しない（補完すると init 側が
+    未知フラグ扱いでヘルプ表示・exit 2 になる回帰バグの再現ケース）。"""
+    _fake_skill(tmp_path, "contextdb")
+    (tmp_path / ".contextdb").mkdir()   # 上位に既存ルートがあっても
+    sub = tmp_path / "consumer-app"
+    sub.mkdir()
+    monkeypatch.chdir(sub)              # cwd には .contextdb が無い
+    with pytest.raises(SystemExit) as exc:
+        launcher.main("contextdb", ["init"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "--root" not in out
+    assert "ARGS:init" in out
+
+
+def test_contextdb_aggregate_gets_no_default_root(launcher, tmp_path, monkeypatch,
+                                                  capsys):
+    """aggregate は複数ルートを位置引数で受けるため --root を補完しない。"""
+    _fake_skill(tmp_path, "contextdb")
+    (tmp_path / ".contextdb").mkdir()
+    sub = tmp_path / "docs"
+    sub.mkdir()
+    monkeypatch.chdir(sub)
+    with pytest.raises(SystemExit):
+        launcher.main("contextdb", ["aggregate", "a", "b"])
+    out = capsys.readouterr().out
+    assert "--root" not in out
+
+
 def test_python_package_at_root_is_not_a_skill(launcher, tmp_path, monkeypatch,
                                                capsys):
     """__init__.py を持つ同名パッケージ（docextract 等）を誤解決しない。"""
