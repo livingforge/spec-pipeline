@@ -47,6 +47,27 @@ def fmt_evidence(src) -> str:
     return " / ".join(texts) if texts else "—"
 
 
+def group_by(items, attr: str, default: str = "未分類"):
+    """アイテム列を属性値で束ねる汎用ヘルパ（テンプレートの見出しグルーピング用）。
+
+    初出順を保ち、値が未設定（None/空文字）のものは default バケットへまとめて
+    末尾に置く。戻り値は [(値, [アイテム, …]), …]。特定種別の知識は持たない。
+    """
+    groups: dict = {}
+    order: list = []
+    for it in items:
+        raw = it.attrs.get(attr) if hasattr(it, "attrs") else None
+        key = raw if (raw is not None and str(raw).strip() != "") else default
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(it)
+    keys = [k for k in order if k != default]
+    if default in groups:
+        keys.append(default)   # 未分類は常に末尾
+    return [(k, groups[k]) for k in keys]
+
+
 def git_rev(root: Path) -> str:
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root,
@@ -78,6 +99,7 @@ def make_env(store: Store, template_dirs: Path | list[Path],
     env.filters["evidence"] = fmt_evidence
     env.filters["item_label"] = lambda iid: (
         store.items[iid].label(store.mm) if iid in store.items else iid)
+    env.filters["group_by"] = group_by
     return env
 
 

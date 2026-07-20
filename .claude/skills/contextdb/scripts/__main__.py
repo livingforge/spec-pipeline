@@ -54,6 +54,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "list": ("list.py", "アイテム/関係を status 等で絞って列挙"),
     "visualize": ("visualize.py", "対話型グラフビューア out/contextdb.html"),
     "sync-check": ("sync_check.py", "実装と正本の乖離を検出"),
+    "quality": ("quality_check.py", "見出し・本文の品質を検出（命名/重複）"),
     "mutate": ("mutate.py", "アイテム/関係の追加・変更・承認"),
 }
 ALIASES = {"validate": "engine", "sync_check": "sync-check"}

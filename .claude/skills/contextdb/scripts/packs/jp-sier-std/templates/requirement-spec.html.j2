@@ -44,27 +44,85 @@
 {% for kind, no, name in [('機能', '1', '機能要件'), ('非機能', '2', '非機能要件')] %}
 {% call ex.sheet(no ~ '. ' ~ name, doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
 {{ ex.sec(no, name) }}
+{# 大分類(category)で見出しを立てて束ねる。未設定は「未分類」として末尾にまとまる。 #}
+{% set kind_reqs = reqs|selectattr('attrs.kind', 'equalto', kind)|list %}
+{% for cat, rows in kind_reqs|group_by('category') %}
+{{ ex.subsec(no ~ '.' ~ loop.index, cat) }}
 <table class="xl">
-  <tr><th style="width:12%">要件ID</th><th style="width:22%">要件名</th>
-      <th>内容</th><th style="width:26%">実現する設計要素</th></tr>
-  {% for r in reqs if r.attrs.kind == kind %}
+  <tr><th style="width:11%">要件ID</th><th style="width:20%">要件名</th>
+      <th>内容</th><th style="width:13%">上位要件</th><th style="width:24%">実現する設計要素</th></tr>
+  {% for r in rows %}
   {% set realizers = store.relations_of('realizes', dst=r.id)|map(attribute='src')|map('item_label')|list %}
+  {# 粒度差の階層（child refines parent）。同種内の refines だけを親として拾う。 #}
+  {% set parents = [] %}
+  {% for rf in store.relations_of('refines', src=r.id) %}
+  {% if rf.dst in store.items and store.items[rf.dst].type == 'requirement' %}
+  {% set _ = parents.append(store.items[rf.dst].attrs.req_id or (rf.dst|item_label)) %}
+  {% endif %}
+  {% endfor %}
   <tr>
     <td class="c">{{ r.attrs.req_id }}</td><td>{{ r.attrs.name }}</td>
     <td>{{ r.attrs.statement }}</td>
+    <td class="c">{{ parents|join('、') or '—' }}</td>
     {% if realizers %}<td>{{ realizers|join('、') }}</td>
     {% else %}<td class="st-review">⚠️ 未実現（カバレッジ・ギャップ）</td>{% endif %}
   </tr>
   {% endfor %}
 </table>
+{% endfor %}
 {% endcall %}
 {% endfor %}
+
+{# ---- 3. 制約・前提 ---- #}
+{% set constraints = store.items_of('constraint') %}
+{% call ex.sheet('3. 制約・前提', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('3', '制約・前提') }}
+{% if constraints %}
+{% for cat, rows in constraints|group_by('category') %}
+{{ ex.subsec('3.' ~ loop.index, cat) }}
+<table class="xl">
+  <tr><th style="width:12%">ID</th><th>内容</th><th style="width:26%">制約する対象</th></tr>
+  {% for c in rows %}
+  {% set targets = store.relations_of('constrains', src=c.id)|map(attribute='dst')|map('item_label')|list %}
+  <tr>
+    <td class="c">{{ c.attrs.constraint_id }}</td>
+    <td>{{ c.attrs.statement }}</td>
+    <td>{{ targets|join('、') or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endfor %}
+{% else %}
+{{ ex.prose('登録された制約・前提はありません。') }}
+{% endif %}
+{% endcall %}
+
+{# ---- 4. 用語定義 ---- #}
+{% set terms = store.items_of('glossary-term') %}
+{% call ex.sheet('4. 用語定義', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('4', '用語定義') }}
+{% if terms %}
+<table class="xl">
+  <tr><th style="width:22%">用語</th><th style="width:16%">読み</th><th>定義</th></tr>
+  {% for t in terms %}
+  <tr>
+    <td>{{ t.attrs.term }}</td>
+    <td>{{ t.attrs.reading or '—' }}</td>
+    <td>{{ t.attrs.description }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+{{ ex.prose('登録された用語はありません。') }}
+{% endif %}
+{% endcall %}
 
 {# ---- 付録 出典一覧 ---- #}
 {% call ex.sheet('付録 出典一覧', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
 {{ ex.sec('付録', '出典一覧') }}
 {% set rows = [] %}
-{% for it in reqs %}
+{# 本文に載せた 3 種別ぶんをまとめて集約する（要件だけだと制約・用語の出典が落ちる）。 #}
+{% for it in reqs + constraints + terms %}
 {% if it.source %}{% set _ = rows.append({'name': it.label(mm), 'kind': mm.item_types[it.type].label,
     'id': it.id, 'src': it.source}) %}{% endif %}
 {% endfor %}

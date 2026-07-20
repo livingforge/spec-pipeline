@@ -162,6 +162,16 @@ class FactStoreTest(unittest.TestCase):
         forced = fs.add("d", "メソッド", "本文", refs=[{"rel": "画面遷移", "to_ref": "SCR-9"}], force=True)
         self.assertEqual(forced["refs"][0]["rel"], "画面遷移")
 
+    def test_ref_realized_by_accepted_distinct_from_realizes(self):
+        # コード由来トレースの逆向き参照。機能要件が「昇華元メソッド」を指す。
+        fs = self._fs()
+        item = fs.add(
+            "doc_a", "機能要件", "利用者は注文を登録できる",
+            refs=[{"rel": "realized-by", "to_ref": "OrderService.register_order(...)"}],
+        )
+        # realizes に丸められず、逆向きの realized-by として保持される。
+        self.assertEqual(item["refs"][0]["rel"], "realized-by")
+
     def test_ref_requires_rel_and_to_ref(self):
         fs = self._fs()
         with self.assertRaises(DocAgentError):

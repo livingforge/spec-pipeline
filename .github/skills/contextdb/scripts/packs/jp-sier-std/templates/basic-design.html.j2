@@ -105,33 +105,39 @@
 </table>
 {% endfor %}
 {% endcall %}
-{# ---- 4. 業務ルール ---- #}
+{# ---- 4. 業務ルール（大分類(category)で見出しを束ねる。未設定は末尾の未分類） ---- #}
 {% call ex.sheet('4. 業務ルール', doc.title, doc.doc_no, doc.version) %}
 {{ ex.sec('4', '業務ルール') }}
+{% for cat, rows in rules|group_by('category') %}
+{{ ex.subsec('4.' ~ loop.index, cat) }}
 <table class="xl">
   <tr><th style="width:14%">ルールID</th><th>内容</th><th style="width:24%">制約対象</th></tr>
-  {% for r in rules %}
+  {% for r in rows %}
   <tr>
     <td class="c">{{ r.attrs.rule_id }}</td><td>{{ r.attrs.statement }}</td>
     <td>{% for c in store.relations_of('constrains', src=r.id) %}{{ c.dst|item_label }}{{ '、' if not loop.last }}{% endfor %}</td>
   </tr>
   {% endfor %}
 </table>
+{% endfor %}
 {% endcall %}
-{# ---- 5. 外部インターフェース ---- #}
+{# ---- 5. 外部インターフェース（方向(direction)で見出しを束ねる） ---- #}
 {% call ex.sheet('5. 外部インターフェース', doc.title, doc.doc_no, doc.version) %}
 {{ ex.sec('5', '外部インターフェース') }}
+{% for dir, rows in ifaces|group_by('direction') %}
+{{ ex.subsec('5.' ~ loop.index, dir) }}
 <table class="xl">
-  <tr><th style="width:12%">IF-ID</th><th style="width:22%">名称</th>
-      <th style="width:10%">方向</th><th style="width:14%">プロトコル</th><th>説明</th></tr>
-  {% for i in ifaces %}
+  <tr><th style="width:12%">IF-ID</th><th style="width:24%">名称</th>
+      <th style="width:16%">プロトコル</th><th>説明</th></tr>
+  {% for i in rows %}
   <tr>
     <td class="c">{{ i.attrs.if_id }}</td><td>{{ i.attrs.name }}</td>
-    <td class="c">{{ i.attrs.direction }}</td><td class="c">{{ i.attrs.get('protocol', '—') }}</td>
+    <td class="c">{{ i.attrs.get('protocol', '—') }}</td>
     <td>{{ i.attrs.description }}</td>
   </tr>
   {% endfor %}
 </table>
+{% endfor %}
 {% endcall %}
 {% endblock %}
 

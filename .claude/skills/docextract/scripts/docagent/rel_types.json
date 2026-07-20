@@ -1,6 +1,7 @@
 {
   "rel_types": [
     "realizes",
+    "realized-by",
     "refines",
     "constrains",
     "interfaces",

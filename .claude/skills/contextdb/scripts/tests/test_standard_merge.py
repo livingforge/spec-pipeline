@@ -362,3 +362,26 @@ def test_store_load_validates_data_against_merged_model():
     assert store.has_errors()
     assert any("description" in str(p) for p in store.problems)
     assert [p.name for p in store.packs] == ["corp-std"]
+
+
+# ---------- lock 照合が Store 読み込み全経路で効く ----------
+def test_store_load_reports_lock_drift():
+    """pack.lock のずれは Store.load 時点で検出する。
+
+    以前は conform でしか照合せず、完了判定に使う engine（と generate / mutate）が
+    パック更新に lock が追随していない状態を素通りしていた。
+    """
+    root = build(corp_tree({"metamodel.yaml": "version: 1\nextends: corp-std@2.0\n"}))
+    problems: list[Problem] = []
+    packs = standard.resolve_chain(root, problems)
+    standard.write_lock(root, packs)
+    store = Store.load(root)
+    assert not any("STD-W003" in p.message for p in store.problems)
+
+    # パック内容を書き換える → lock と不一致
+    (root / "packs/corp-std/metamodel/core.yaml").write_text(CORP_MM + "\n# 変更\n",
+                                                             encoding="utf-8")
+    store = Store.load(root)
+    drift = [p for p in store.problems if "STD-W003" in p.message]
+    assert len(drift) == 1                 # 二重に検出しない
+    assert drift[0].level == "warn"        # 既定は warn（既存プロジェクトを落とさない）

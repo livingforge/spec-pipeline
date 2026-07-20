@@ -9,6 +9,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -287,6 +289,103 @@ def test_send_rejects_non_array_result(store, tmp_path, capsys):
     capsys.readouterr()
     assert store("context-send", "--id", f"{doc_id}.b01", "--result", "{}", "--json") == 1
     assert store("context-send", "--id", f"{doc_id}.b01", "--result", "壊れたJSON", "--json") == 1
+
+
+# ── 封筒形式: ペイロードの出所を --id と突き合わせる ─────────────
+# 並列サブエージェントが共有スクラッチパッドに同名の中間ファイルを書くと、他の
+# エージェントのペイロードを自分のブロックとして送る取り違えが起きる。send() は
+# doc_id/location をブロック定義から付与するため取り違えても形式的には正常な
+# データになり、context-check も「完了」しか見ないので誰も気づけない。
+_ENVELOPE_ITEMS = [{"type": "用語", "statement": "封筒: 出所つきペイロード"}]
+
+
+def test_send_envelope_matching_block_id_is_accepted(store, tmp_path, capsys):
+    doc_id = _register(store, tmp_path, "env.xlsx", {"s": "本文です。"})
+    store("context-set", "--docs", doc_id, "--json")
+    capsys.readouterr()
+    block_id = f"{doc_id}.b01"
+    envelope = {"block_id": block_id, "items": _ENVELOPE_ITEMS}
+    assert store("context-send", "--id", block_id,
+                 "--result", json.dumps(envelope, ensure_ascii=False), "--json") == 0
+    out = _out_json(capsys)
+    assert out["added"] == 1 and out["block_id_verified"] is True
+    # 裸の配列と同じ結果になる (封筒は運搬形式であって内容を変えない)
+    shard = json.loads(Path(out["shard"]).read_text(encoding="utf-8"))
+    assert shard["items"][0]["statement"] == _ENVELOPE_ITEMS[0]["statement"]
+    assert shard["items"][0]["location"] == {"sheet": "s"}
+
+
+def test_send_envelope_mismatched_block_id_writes_no_shard(store, tmp_path, capsys):
+    doc_id = _register(store, tmp_path, "mis.xlsx", {"a": "あ" * 40, "b": "い" * 40})
+    store("context-set", "--docs", doc_id, "--max-chars", "50", "--json")
+    capsys.readouterr()
+    # b02 のつもりで抽出した結果を b01 として送る = 実際に起きた取り違えの再現
+    envelope = {"block_id": f"{doc_id}.b02", "items": _ENVELOPE_ITEMS}
+    assert store("context-send", "--id", f"{doc_id}.b01",
+                 "--result", json.dumps(envelope, ensure_ascii=False), "--json") == 1
+    err = capsys.readouterr().err
+    assert f"{doc_id}.b02" in err and f"{doc_id}.b01" in err
+    # 送信しなかった = シャードが無く、バリアは incomplete のまま (done にしない)
+    assert store("context-check", "--json") == 3
+    state = _out_json(capsys)
+    assert state["complete"] is False
+    assert not state["shards"]
+    assert f"{doc_id}.b01" in [i["id"] for i in state["incomplete"]]
+
+
+def test_send_reads_stdin_as_utf8_regardless_of_locale(store, tmp_path):
+    """--result - の日本語が化けないこと (別プロセスで実環境の stdin を通す)。
+
+    結果は stdin で渡す設計 (中間ファイルの取り違え事故を構造的に潰すため) なので、
+    stdin のデコードが locale 任せだと成立しない。Windows の既定 cp932 では
+    statement も type も復元不能に化け、種別が語彙外になって全項目 rejected に
+    なる。PYTHONIOENCODING で敵対的な locale を明示し、それを上書きできることを
+    確認する (monkeypatch した StringIO では再現しない — 実プロセスが要る)。
+    """
+    doc_id = _register(store, tmp_path, "utf8.xlsx", {"s": "本文です。"})
+    store("context-set", "--docs", doc_id, "--json")
+    block_id = f"{doc_id}.b01"
+    sd = tmp_path / "store"
+    statement = "注文金額 10,000 円以上は送料無料"
+    payload = json.dumps(
+        {"block_id": block_id, "items": [{"type": "業務ルール", "statement": statement}]},
+        ensure_ascii=False,
+    )
+    proc = subprocess.run(
+        [sys.executable, "-m", "docagent", "context-send",
+         "--id", block_id, "--result", "-", "--json",
+         "--store", str(sd / "library.json"),
+         "--doctypes", str(sd / "doctypes.json"),
+         "--facts", str(sd / "facts.json"),
+         "--item-types-file", str(sd / "item_types.json"),
+         "--rel-types-file", str(sd / "rel_types.json"),
+         "--context", str(sd / "context.json")],
+        input=payload.encode("utf-8"),
+        capture_output=True,
+        cwd=str(Path(__file__).resolve().parents[1]),
+        env={**os.environ,
+             "DOCEXTRACT_HOME": str(tmp_path / "home"),
+             "PYTHONIOENCODING": "cp932"},  # 敵対的 locale を上書きできること
+    )
+    assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")
+    out = json.loads(proc.stdout.decode("utf-8"))
+    assert out["added"] == 1 and not out["rejected"]  # 化けると種別が語彙外で rejected
+    shard = json.loads(Path(out["shard"]).read_text(encoding="utf-8"))
+    assert shard["items"][0]["statement"] == statement
+    assert shard["items"][0]["type"] == "業務ルール"
+
+
+def test_send_envelope_without_block_id_is_accepted_with_warning(store, tmp_path, capsys):
+    doc_id = _register(store, tmp_path, "nob.xlsx", {"s": "本文です。"})
+    store("context-set", "--docs", doc_id, "--json")
+    capsys.readouterr()
+    envelope = {"items": _ENVELOPE_ITEMS}
+    assert store("context-send", "--id", f"{doc_id}.b01",
+                 "--result", json.dumps(envelope, ensure_ascii=False), "--json") == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["block_id_verified"] is False
+    # 突合をスキップした事実は黙って飲み込まない (silent cap 禁止)
+    assert "block_id がありません" in captured.err
 
 
 # ── 既定出力: 軽量エージェント形式 (--json 不要) ─────────────────

@@ -46,6 +46,7 @@
 <table class="xl">
   <tr>
     <th style="width:24%">要件</th>
+    <th>上位要件<br>(refines先)</th>
     <th>実現する設計要素<br>(realizes)</th>
     <th>詳細化元の基本設計<br>(refines先)</th>
     <th>メソッド<br>(has-method)</th>
@@ -56,6 +57,13 @@
   {% set realizers = store.relations_of('realizes', dst=r.id) %}
   {% set refined = [] %}
   {% set methods = [] %}
+  {# 要件間の粒度差（child refines parent）。設計要素経由の refines とは別軸。 #}
+  {% set req_parents = [] %}
+  {% for rf in store.relations_of('refines', src=r.id) %}
+  {% if rf.dst in store.items and store.items[rf.dst].type == 'requirement' %}
+  {% set _ = req_parents.append(store.items[rf.dst].attrs.req_id or (rf.dst|item_label)) %}
+  {% endif %}
+  {% endfor %}
   {% for x in realizers %}
   {% for rf in store.relations_of('refines', src=x.src) %}{% set _ = refined.append(rf.dst|item_label) %}{% endfor %}
   {% for hm in store.relations_of('has-method', src=x.src) %}{% set _ = methods.append(hm.dst|item_label) %}{% endfor %}
@@ -63,6 +71,7 @@
   {% set verifiers = store.relations_of('verifies', dst=r.id) %}
   <tr>
     <td>{{ r.attrs.req_id }}　{{ r.attrs.name }}〔{{ r.attrs.kind }}〕</td>
+    <td class="c">{{ req_parents|join('、') or '—' }}</td>
     <td>{% for x in realizers %}{{ x.src|item_label }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% if not realizers %}—{% endif %}</td>
     <td>{{ refined|unique|list|join('、') or '—' }}</td>
     <td>{{ methods|unique|list|join('、') or '—' }}</td>

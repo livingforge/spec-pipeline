@@ -100,6 +100,92 @@ def test_add_item_numeric_id_when_no_slug():
     assert ed.add_item("data-item", {"name": "受注番号"}, SOURCE) == "di-0002"
 
 
+KEYED_MM = """
+version: 1
+item_types:
+  requirement:
+    label: 要件
+    label_field: name
+    id_prefix: req-
+    sequence:
+      attribute: req_id
+      by: kind
+      format: { 機能: "FR-{:03d}", 非機能: "NFR-{:03d}" }
+    attributes:
+      req_id:    { kind: string, required: true, unique: true }
+      name:      { kind: string, required: true }
+      kind:      { kind: enum, values: [機能, 非機能], required: true }
+  test-case:
+    label: テストケース
+    label_field: name
+    id_prefix: tc-
+    sequence:
+      attribute: test_id
+      by: level
+      format: { 単体: "UT-{:04d}", default: "TC-{:04d}" }
+    attributes:
+      test_id: { kind: string, required: true, unique: true }
+      name:    { kind: string, required: true }
+      level:   { kind: enum, values: [単体, 結合], extensible: true, required: true }
+"""
+
+
+def build_keyed_root(mm: str = KEYED_MM) -> Path:
+    root = Path(tempfile.mkdtemp(prefix="contextdb-keyed-"))
+    for rel, text in {
+        "metamodel.yaml": mm,
+        "items/requirement/core.yaml": "",
+        "items/test-case/core.yaml": "",
+    }.items():
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+    return root
+
+
+def test_sequence_keyed_by_enum_uses_independent_counters():
+    # 機能=FR、非機能=NFR が別系列で採番される（③）
+    root = build_keyed_root()
+    ed = Editor(root)
+    ed.add_item("requirement", {"name": "登録", "kind": "機能"}, SOURCE, slug="reg")
+    ed.add_item("requirement", {"name": "性能", "kind": "非機能"}, SOURCE, slug="perf")
+    ed.add_item("requirement", {"name": "検索", "kind": "機能"}, SOURCE, slug="search")
+    store = Store.load(root)
+    assert not store.has_errors(), [str(p) for p in store.problems]
+    ids = sorted(i.attrs["req_id"] for i in store.items_of("requirement"))
+    assert ids == ["FR-001", "FR-002", "NFR-001"]
+
+
+def test_sequence_keyed_falls_back_to_default():
+    # extensible な区分値は default 書式で採番される（③）
+    root = build_keyed_root()
+    ed = Editor(root)
+    ed.add_item("test-case", {"name": "正常", "level": "単体"}, SOURCE, slug="ok")
+    ed.add_item("test-case", {"name": "連携", "level": "結合"}, SOURCE, slug="it")  # 標準外→default
+    store = Store.load(root)
+    ids = sorted(i.attrs["test_id"] for i in store.items_of("test-case"))
+    assert ids == ["TC-0001", "UT-0001"]
+
+
+def test_sequence_keyed_without_by_errors():
+    # dict format なのに by（区分属性）が無い metamodel は明示エラー（防御的）
+    ed = Editor(build_keyed_root(KEYED_MM.replace("      by: kind\n", "")))
+    with pytest.raises(MutateError, match="by（区分属性）が必要"):
+        ed.add_item("requirement", {"name": "x", "kind": "機能"}, SOURCE, slug="x")
+
+
+def test_sequence_does_not_reuse_number_after_deprecate():
+    # deprecate は削除せず ID を残すので、番号は使い回されない（①）
+    root = build_root()
+    ed = Editor(root)
+    ed.add_item("function", {"name": "二番目"}, SOURCE, slug="second")   # F-02
+    ed.set_status("fn-second", "deprecated", _via="deprecate")
+    ed.add_item("function", {"name": "三番目"}, SOURCE, slug="third")
+    store = Store.load(root)
+    assert store.items["fn-third"].attrs["func_id"] == "F-03"   # F-02 を再利用しない
+    assert store.items["fn-second"].status == "deprecated"
+
+
 def test_add_item_requires_source_and_prefix():
     ed = Editor(build_root())
     with pytest.raises(MutateError, match="source"):

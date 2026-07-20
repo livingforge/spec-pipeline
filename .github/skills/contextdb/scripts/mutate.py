@@ -227,14 +227,34 @@ class Editor:
         return iid
 
     def _next_sequence(self, t: str, attrs: dict) -> None:
-        """metamodel の sequence 宣言に従い連番属性を自動で埋める（指定済みなら何もしない）。"""
+        """metamodel の sequence 宣言に従い連番属性を自動で埋める（指定済みなら何もしない）。
+
+        format は文字列（例 "BR-{:03d}"）のほか、区分属性ごとに書式を切り替える
+        dict も取れる（例 by: kind, format: {機能: "FR-{:03d}", 非機能: "NFR-{:03d}"}）。
+        区分値が format に無ければ format.default を使い、それも無ければ error。
+        採番は該当書式に一致する既存 ID（deprecated 含む）の最大 +1 なので、
+        FR と NFR のように接頭辞が違えば採番系列は独立し、一度使った番号は
+        使い回さない（deprecate は削除せず ID を残すため欠番が埋め戻されない）。
+        """
         store = self._store()
         seq = store.mm.item_types[t].get("sequence")
         if not seq or seq["attribute"] in attrs:
             return
-        m = re.fullmatch(r"(.*)\{:0?(\d*)d\}(.*)", seq["format"])
+        fmt = seq["format"]
+        if isinstance(fmt, dict):
+            by = seq.get("by")
+            if not by:
+                raise MutateError(
+                    f"種別 '{t}' の sequence: format を区分別にするなら by（区分属性）が必要")
+            key = attrs.get(by)
+            fmt = fmt.get(key, fmt.get("default"))
+            if fmt is None:
+                raise MutateError(
+                    f"種別 '{t}' の sequence: {by}='{key}' に対応する書式が format に無い"
+                    "（format に default を足すか区分値を見直す）")
+        m = re.fullmatch(r"(.*)\{:0?(\d*)d\}(.*)", fmt)
         if not m:
-            raise MutateError(f"sequence format '{seq['format']}' を解釈できない")
+            raise MutateError(f"sequence format '{fmt}' を解釈できない")
         pre, width, post = m.group(1), int(m.group(2) or 1), m.group(3)
         nums = [int(g.group(1)) for i in store.items_of(t)
                 if (g := re.fullmatch(re.escape(pre) + r"(\d+)"

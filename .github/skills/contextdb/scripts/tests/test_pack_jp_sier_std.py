@@ -229,6 +229,93 @@ def test_generates_all_documents():
     assert "顧客一覧の表示確認" in rendered["traceability-matrix"]
 
 
+def test_group_by_filter_preserves_first_appearance_and_buckets_unset():
+    """汎用 group_by: 初出順を保ち、未設定値は default バケットで末尾に集約する。"""
+    from generate import group_by
+
+    class _It:
+        def __init__(self, cat):
+            self.attrs = {"category": cat} if cat is not None else {}
+
+    items = [_It("在庫"), _It("顧客管理"), _It(None), _It("在庫"), _It("")]
+    grouped = group_by(items, "category")
+    keys = [k for k, _ in grouped]
+    assert keys == ["在庫", "顧客管理", "未分類"]          # 初出順、未分類は末尾
+    assert len(dict(grouped)["在庫"]) == 2                 # 同カテゴリはまとまる
+    assert len(dict(grouped)["未分類"]) == 2               # None と 空文字が集約
+
+
+def test_requirement_spec_groups_by_category():
+    """要件定義書は大分類(category)で見出しを立てて要件を束ね、未設定は未分類にする。"""
+    root = consuming_project()
+    # 要件を大分類つきで置き換える（req-0001 は realizes 済みなので id を保つ）。
+    # 顧客管理(F-01,F-02) → 在庫(F-03) → category 未設定(F-04) の順で並べる。
+    write(root, "items/requirement/core.yaml",
+          "- { id: req-0001, req_id: F-01, name: 顧客照会, kind: 機能, "
+          "category: 顧客管理, statement: 顧客を一覧照会できる, status: approved }\n"
+          "- { id: req-0002, req_id: F-02, name: 顧客登録, kind: 機能, "
+          "category: 顧客管理, statement: 顧客を登録できる, status: approved }\n"
+          "- { id: req-0003, req_id: F-03, name: 在庫確認, kind: 機能, "
+          "category: 在庫管理, statement: 在庫を確認できる, status: approved }\n"
+          "- { id: req-0004, req_id: F-04, name: その他, kind: 機能, "
+          "statement: 分類のない機能, status: approved }\n")
+    store = Store.load(root)
+    packs = store.packs
+    docs = dict(standard.collect_documents(root, packs, store.problems))
+    env = make_env(store, standard.template_search_dirs(root, packs),
+                   standard.prefix_map(packs))
+    html = env.get_template(docs["requirement-spec"]["template"]).render(
+        doc=docs["requirement-spec"], store=store, mm=store.mm,
+        generated_at="2026-07-05T00:00:00+09:00", data_rev="r", data_history=[])
+    # 3 つの大分類が見出し(subsec)として現れる
+    for cat in ("顧客管理", "在庫管理", "未分類"):
+        assert cat in html, f"大分類見出し {cat} が無い"
+    # 並びは 顧客管理 → 在庫管理 → 未分類（初出順、未分類は末尾）
+    assert html.index("顧客管理") < html.index("在庫管理") < html.index("未分類")
+    # 見出しは章番号つきの subsec（1.1 顧客管理 …）
+    assert "subsec" in html and "1.1" in html
+
+
+def test_basic_design_groups_rules_by_category_and_ifaces_by_direction():
+    """基本設計書: 業務ルールは大分類(category)、外部IFは方向(direction)で見出しを束ねる。"""
+    root = consuming_project()
+    # 業務ルール: 与信(BR-001,BR-002) → 在庫(BR-003) → category 未設定(BR-004)。
+    write(root, "items/business-rule/core.yaml",
+          "- { id: br-0001, rule_id: BR-001, category: 与信管理, "
+          "statement: 与信限度額を超える受注は不可, status: approved }\n"
+          "- { id: br-0002, rule_id: BR-002, category: 与信管理, "
+          "statement: 与信保留中の顧客は受注不可, status: approved }\n"
+          "- { id: br-0003, rule_id: BR-003, category: 在庫管理, "
+          "statement: 在庫数を下回る出荷は不可, status: approved }\n"
+          "- { id: br-0004, rule_id: BR-004, "
+          "statement: 分類のないルール, status: approved }\n")
+    # 外部IF: 入力2件 → 出力1件（方向で束ねる）。
+    write(root, "items/external-interface/core.yaml",
+          "- { id: if-0001, name: 在庫連携受信, if_id: IF-001, direction: 入力, "
+          "protocol: REST, description: 倉庫から在庫を受信する, status: approved }\n"
+          "- { id: if-0002, name: 与信照会, if_id: IF-002, direction: 入力, "
+          "protocol: SOAP, description: 与信機関へ照会する, status: approved }\n"
+          "- { id: if-0003, name: 出荷指示送信, if_id: IF-003, direction: 出力, "
+          "protocol: FTP, description: 倉庫へ出荷を指示する, status: approved }\n")
+    store, problems = load(root)
+    assert not store.has_errors(), problems
+    packs = store.packs
+    docs = dict(standard.collect_documents(root, packs, store.problems))
+    env = make_env(store, standard.template_search_dirs(root, packs),
+                   standard.prefix_map(packs))
+    html = env.get_template(docs["basic-design"]["template"]).render(
+        doc=docs["basic-design"], store=store, mm=store.mm,
+        generated_at="2026-07-05T00:00:00+09:00", data_rev="r", data_history=[])
+    # 業務ルール: 大分類が subsec 見出しになり、初出順・未分類は末尾
+    for cat in ("与信管理", "在庫管理", "未分類"):
+        assert cat in html, f"業務ルールの大分類見出し {cat} が無い"
+    assert html.index("与信管理") < html.index("在庫管理") < html.index("未分類")
+    assert "4.1" in html                       # 業務ルールの subsec 章番号
+    # 外部IF: 方向が subsec 見出しになる（入力 → 出力）
+    assert "5.1" in html                       # 外部IF の subsec 章番号
+    assert html.index("在庫連携受信") < html.index("出荷指示送信")
+
+
 def test_verifies_trace_and_coverage_gap():
     """テスト工程: verifies が張れて検証を通り、未検証の要件は検証ギャップになる。"""
     root = consuming_project()

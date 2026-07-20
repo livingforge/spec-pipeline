@@ -741,17 +741,50 @@ def cmd_context_send(args):
     elif raw.startswith("@"):
         raw = Path(raw[1:]).read_text(encoding="utf-8-sig")
     try:
-        items = json.loads(raw)
+        payload = json.loads(raw)
     except json.JSONDecodeError as e:
         raise DocAgentError(
             "--result は JSON 配列で指定してください (インライン / @ファイル / '-'=stdin)。"
             f' 例: \'[{{"type":"機能要件","statement":"…"}}]\': {e}'
         ) from e
-    if not isinstance(items, list):
+    # 封筒形式 {"block_id":…, "items":[…]} を受け付け、block_id を --id と突き合わせる。
+    # 並列サブエージェントが中間ファイルを共有スクラッチパッドに同名で書くと、
+    # 他エージェントのペイロードを自分のブロックとして送る取り違えが起きる。
+    # send() は doc_id/location をブロック定義から付与するため、取り違えても
+    # 形式的には正常なデータになり誰も気づけない。ペイロード側に出所を書かせ、
+    # 不一致なら「シャードを作る前に」拒否することで必ず即時エラーにする。
+    envelope_block_id = None
+    if isinstance(payload, dict):
+        if not isinstance(payload.get("items"), list):
+            # object なら何でも通す実装にはしない ({} は従来どおりエラー)。
+            raise DocAgentError(
+                "--result は抽出項目オブジェクトの JSON 配列、または"
+                ' {"block_id":"…","items":[…]} の封筒形式です。'
+            )
+        envelope_block_id = payload.get("block_id")
+        items = payload["items"]
+    elif isinstance(payload, list):
+        items = payload
+    else:
         raise DocAgentError("--result は抽出項目オブジェクトの JSON 配列です。")
+    if envelope_block_id is not None and envelope_block_id != args.id:
+        raise DocAgentError(
+            f"ペイロードの block_id ({envelope_block_id}) が --id ({args.id}) と"
+            "一致しません。他のブロックの抽出結果を送ろうとしている可能性があります。"
+            "送信は行いませんでした。"
+        )
+    if envelope_block_id is None:
+        # 突合をスキップした事実は黙って飲み込まない (取り違え検出が働いていない)。
+        print(
+            f"警告: ペイロードに block_id がありません (--id {args.id})。"
+            '取り違え検出が働きません。{"block_id":"…","items":[…]} の封筒形式を'
+            "推奨します。",
+            file=sys.stderr,
+        )
     result = queue.send(
         args.id, items, args.item_types_file, args.rel_types_file
     )
+    result["block_id_verified"] = envelope_block_id is not None
     if args.json:
         _emit(result, True, lambda o: None)
         return
@@ -1158,9 +1191,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument(
         "--result",
         required=True,
-        help="抽出項目の JSON 配列。インライン / @ファイル / '-'=stdin。"
+        help="抽出項目の JSON。インライン / @ファイル / '-'=stdin。"
         ' 各項目: {"type":"種別","statement":"1文","refs":[{"rel":"realizes",'
-        '"to_ref":"F-02"}]} (refs は任意)',
+        '"to_ref":"F-02"}]} (refs は任意)。'
+        ' 推奨は封筒形式 {"block_id":"<--id と同じ>","items":[…]} —'
+        " block_id が --id と一致しないと送信せずエラーにする (取り違え検出)。"
+        " 裸の配列 [...] も受け付けるが突合は行わない",
     )
     sp.set_defaults(func=cmd_context_send)
 
@@ -1171,8 +1207,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Windows コンソール (cp932) でも日本語・記号を安全に出力するため UTF-8 に固定。
-    for stream in (sys.stdout, sys.stderr):
+    # Windows コンソール (cp932) でも日本語・記号を安全に入出力するため UTF-8 に固定。
+    # stdin を含めるのは必須: context-send は結果を stdin (--result -) で受け取る
+    # 設計で、既定の cp932 のままだと日本語の statement / type が復元不能に化ける
+    # (種別が語彙外になって全項目 rejected になる)。
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):

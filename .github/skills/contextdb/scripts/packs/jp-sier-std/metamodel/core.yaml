@@ -2,12 +2,14 @@
 #
 # 消費側はこれを土台に「追加・厳格化」だけができる（緩和は STD-E1xx で拒否）。
 # 工程で並べると:
-#   要件工程    : requirement（機能/非機能要件）
+#   要件工程    : requirement（機能/非機能要件）/ constraint（制約・前提）/
+#                 glossary-term（用語）
 #   基本設計工程: screen（画面）/ entity（テーブル）/ data-item（データ項目）/
 #                 business-rule（業務ルール）/ external-interface（外部IF）
 #   詳細設計工程: module（モジュール/クラス）/ method（メソッド）
 #   テスト工程  : test-case（単体/結合/総合テストケース）/ test-run（テスト結果）
-# 工程間トレース: realizes（設計要素→要件）/ refines（詳細設計→基本設計）/
+# 工程間トレース: realizes（設計要素→要件）/ refines（詳細設計→基本設計、および
+#                 要件間・業務ルール間の粒度差の階層化。宣言本体は refines: を参照）/
 #                 verifies（テスト→要件/メソッド/画面。V字の右側）/
 #                 executes（テスト結果→テストケース。設計と実行を分離）。
 version: 1
@@ -19,10 +21,20 @@ item_types:
     label_field: name
     id_prefix: req-
     warn_if_unreferenced: true   # どの設計要素にも実現されない要件 = カバレッジ欠落として可視化
+    # 表示 ID(req_id) は機能/非機能で独立採番する。手入力せず自動採番に任せる
+    # ことで衝突・桁ズレ・業務的意味の埋め込み（例 F-CODE-01）を防ぐ。
+    sequence:
+      attribute: req_id
+      by: kind
+      format: { 機能: "FR-{:03d}", 非機能: "NFR-{:03d}" }
     attributes:
       req_id:      { kind: string, required: true, unique: true }
       name:        { kind: string, required: true }
       kind:        { kind: enum, values: [機能, 非機能], required: true }
+      # category(大分類/機能グループ) はフラットな要件一覧を見出しで束ねるための
+      # 任意分類。未設定の要件は生成時に「未分類」へ集約する（既存データは無改造で
+      # 検証を通る）。深い親子分解が要るなら別途 refines 系の関係で重ねる。
+      category:    { kind: string }
       statement:   { kind: string, required: true }
       description: { kind: string }
 
@@ -32,6 +44,7 @@ item_types:
     id_prefix: scr-
     # 画面は関係の起点（from）専用で、どこからも参照されないのが通常。
     # warn_if_unreferenced は dst 参照だけを見るため screen には設定しない。
+    sequence: { attribute: screen_id, format: "SCR-{:03d}" }
     attributes:
       name:        { kind: string, required: true }
       screen_id:   { kind: string, required: true, unique: true }
@@ -68,12 +81,42 @@ item_types:
     # 業務ルールも constrains の起点（from）専用のため孤児検出の対象にしない。
     attributes:
       rule_id:   { kind: string, required: true, unique: true }
+      # category(大分類) は要件(requirement.category)と対称の整理軸。フラットな
+      # ルール台帳を見出しで束ねるための任意分類で、未設定は生成時に「未分類」へ
+      # 集約する（既存データは無改造で検証を通る）。深い親子分解が要るなら別途
+      # 関係で重ねる。コード由来では抽出元モジュールを初期値に充てられる。
+      category:  { kind: string }
       statement: { kind: string, required: true }
+
+  constraint:
+    label: 制約・前提
+    label_field: statement
+    id_prefix: con-
+    sequence: { attribute: constraint_id, format: "CON-{:03d}" }
+    # 前提・制約は「守る対象」を constrains で指す起点専用なので孤児検出しない。
+    attributes:
+      constraint_id: { kind: string, required: true, unique: true }
+      # category(大分類) は要件・業務ルールと対称の整理軸（技術/運用/法令/契約 等）。
+      category:      { kind: string }
+      statement:     { kind: string, required: true }
+
+  glossary-term:
+    label: 用語
+    label_field: term
+    id_prefix: term-
+    # 用語は語そのものが鍵なので連番 ID を振らない（表示 ID = 用語）。
+    attributes:
+      term:        { kind: string, required: true, unique: true }
+      reading:     { kind: string }
+      # 定義文。他種別の description と同じ役割にしておくと、ファクトの
+      # canonical_statement をそのまま流し込める。
+      description: { kind: string, required: true }
 
   external-interface:
     label: 外部インターフェース
     label_field: name
     id_prefix: if-
+    sequence: { attribute: if_id, format: "IF-{:03d}" }
     attributes:
       name:        { kind: string, required: true, unique: true }
       if_id:       { kind: string, required: true, unique: true }
@@ -86,6 +129,7 @@ item_types:
     label_field: class_name
     id_prefix: mod-
     # モジュール（クラス）は関係の起点（from）専用で、通常どこからも参照されない。
+    sequence: { attribute: module_id, format: "MOD-{:03d}" }
     attributes:
       module_id:   { kind: string, required: true, unique: true }
       class_name:  { kind: string, required: true, unique: true }
@@ -98,6 +142,7 @@ item_types:
     label_field: signature
     id_prefix: mth-
     warn_if_unreferenced: true   # どのモジュールにも属さないメソッド = 孤児
+    sequence: { attribute: method_id, format: "MTH-{:04d}" }
     attributes:
       method_id:   { kind: string, required: true, unique: true }
       signature:   { kind: string, required: true, unique: true }
@@ -110,6 +155,12 @@ item_types:
     # テストケースは verifies の起点（from）。executes の終点（to）にもなるが、
     # 未実行のケースは executes を持たないだけで error にはしない
     # （テスト結果報告書が「未実施」として可視化する）。
+    # 表示 ID(test_id) は単体/結合/総合で独立採番する。level は extensible なので
+    # 標準外の区分（受入/性能 等）は default 書式 TC- で採番する。
+    sequence:
+      attribute: test_id
+      by: level
+      format: { 単体: "UT-{:04d}", 結合: "IT-{:04d}", 総合: "ST-{:04d}", default: "TC-{:04d}" }
     attributes:
       test_id:      { kind: string, required: true, unique: true }
       name:         { kind: string, required: true }
@@ -126,6 +177,7 @@ item_types:
     id_prefix: tr-
     # テスト結果は executes の起点（from）専用。実行 1 件 = 1 レコードで、
     # 回帰は追記する（テスト設計 test-case と実行結果 test-run を分離する）。
+    sequence: { attribute: run_id, format: "TR-{:04d}" }
     attributes:
       run_id:      { kind: string, required: true, unique: true }
       # result は extensible: 消費側は 対象外/スキップ 等を追加してよい
@@ -161,8 +213,11 @@ relation_types:
 
   constrains:
     label: 制約する
-    from: business-rule
-    to: [data-item, screen]
+    # 制約・前提（技術/運用/法令など）も「何を縛るか」を指す起点になる。
+    # 業務ルールがデータ項目・画面を縛るのに対し、制約は要件やモジュールを
+    # 縛ることが多いので to 側も広げる。
+    from: [business-rule, constraint]
+    to: [data-item, screen, requirement, module]
     embedded: { field: applies_to }
 
   interfaces:
@@ -181,8 +236,12 @@ relation_types:
 
   refines:
     label: 詳細化する
-    from: module
-    to: [screen, entity, external-interface]
+    # 工程間（詳細設計→基本設計）に加え、同種の工程内での粒度差も重ねられる。
+    # 概要の要件と実装粒度の要件は「同じことの言い換え」ではないので統合すると
+    # 情報が落ちる。両方を残して child refines parent で階層にする
+    # （fact-reconcile の refinement 裁定が提案する）。
+    from: [module, requirement, business-rule]
+    to: [screen, entity, external-interface, requirement, business-rule]
 
   has-method:
     label: メソッド

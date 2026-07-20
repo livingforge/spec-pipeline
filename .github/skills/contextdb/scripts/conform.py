@@ -32,7 +32,12 @@ def main() -> int:
     standard.check_template_overrides(root, packs, store.problems)
     standard.check_conformance_rules(root, packs, store, store.problems,
                                      for_baseline=for_baseline)
-    standard.verify_lock(root, packs, store.problems, frozen=frozen)
+    # lock 照合は Store.load が済ませている（全経路で見えるようにするため）。
+    # ここでは --frozen のとき warn を error へ格上げするだけ — 二重に検出しない。
+    if frozen:
+        for p in store.problems:
+            if p.level == "warn" and "STD-W003" in p.message:
+                p.level = "error"
 
     for p in store.problems:
         print(p, file=sys.stderr)

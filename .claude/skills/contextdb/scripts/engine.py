@@ -192,6 +192,12 @@ class Store:
             import standard
             packs = standard.resolve_chain(root, problems)
             data = standard.merge_and_check(root, data, packs, problems)
+            # pack.lock の照合もここで行う。実効メタモデルの同一性の話なので、
+            # 準拠検証 (conform) だけでなく engine / generate / mutate など
+            # Store を読む全経路で見えるようにする（パックを更新したのに lock が
+            # 古いまま、を DoD ゲートの engine が素通りしていた）。
+            # 既定は warn。error への格上げは conform --frozen が行う。
+            standard.verify_lock(root, packs, problems)
         mm = Metamodel(data, problems)
         store = Store(mm)
         store.problems = problems
@@ -480,8 +486,15 @@ def parse_root(args: list[str], default: Path = ROOT) -> tuple[Path, list[str]]:
 
 
 def main() -> int:
-    root, _ = parse_root(sys.argv[1:])
+    root, args = parse_root(sys.argv[1:])
     store = Store.load(root)
+    # --frozen: パック更新に lock が追随していない状態を error 扱いにして exit 1 に
+    # する（CI・完了判定のゲート用）。既定は warn のままにして、パックを更新した
+    # だけで既存プロジェクトが落ちないようにする。
+    if "--frozen" in args:
+        for p in store.problems:
+            if p.level == "warn" and "STD-W003" in p.message:
+                p.level = "error"
     for p in store.problems:
         print(p, file=sys.stderr)
 
