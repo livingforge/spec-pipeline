@@ -52,7 +52,7 @@ from pathlib import Path
 
 import yaml
 
-from engine import Store, parse_root
+from engine import Store, display_abbrev, parse_root
 
 FOLD_THRESHOLD = 60   # これより長い文字列属性は >- の折りたたみで書く
 
@@ -232,9 +232,15 @@ class Editor:
         format は文字列（例 "BR-{:03d}"）のほか、区分属性ごとに書式を切り替える
         dict も取れる（例 by: kind, format: {機能: "FR-{:03d}", 非機能: "NFR-{:03d}"}）。
         区分値が format に無ければ format.default を使い、それも無ければ error。
-        採番は該当書式に一致する既存 ID（deprecated 含む）の最大 +1 なので、
-        FR と NFR のように接頭辞が違えば採番系列は独立し、一度使った番号は
-        使い回さない（deprecate は削除せず ID を残すため欠番が埋め戻されない）。
+
+        sequence に ``prefix_from: <属性>`` があると、その属性値（例 category）を
+        display.yaml の略号へ変換して接頭辞にする（例 CORE-FR-001）。略号が
+        引けないときは接頭辞なしにフォールバックする（既存データ・略号未設定の
+        消費側を壊さない。厳格な検査は resequence コマンドが担う）。
+
+        採番は「同じ接頭辞＋同じ書式」に一致する既存 ID（deprecated 含む）の最大 +1。
+        接頭辞が違えば採番系列は独立するので、prefix_from があると (category, kind) ごと
+        の連番になる（接頭辞なしなら従来どおり kind 別のグローバル通し）。
         """
         store = self._store()
         seq = store.mm.item_types[t].get("sequence")
@@ -256,6 +262,10 @@ class Editor:
         if not m:
             raise MutateError(f"sequence format '{fmt}' を解釈できない")
         pre, width, post = m.group(1), int(m.group(2) or 1), m.group(3)
+        if seq.get("prefix_from"):
+            abbr = display_abbrev(store.display, attrs.get(seq["prefix_from"]))
+            if abbr:
+                pre = f"{abbr}-{pre}"        # 例 pre="FR-" → "CORE-FR-"
         nums = [int(g.group(1)) for i in store.items_of(t)
                 if (g := re.fullmatch(re.escape(pre) + r"(\d+)"
                                       + re.escape(post), str(i.attrs.get(seq["attribute"], ""))))]

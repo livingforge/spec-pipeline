@@ -23,9 +23,15 @@ item_types:
     warn_if_unreferenced: true   # どの設計要素にも実現されない要件 = カバレッジ欠落として可視化
     # 表示 ID(req_id) は機能/非機能で独立採番する。手入力せず自動採番に任せる
     # ことで衝突・桁ズレ・業務的意味の埋め込み（例 F-CODE-01）を防ぐ。
+    # prefix_from: category — 消費側 .contextdb/display.yaml に category_abbrev を
+    # 置くと、表示 ID を <カテゴリ略号>-<FR|NFR>-<NNN>（例 CORE-FR-001）で
+    # (category, kind) ごとに 001 連番採番する（案C）。略号未設定なら接頭辞なしの
+    # 従来挙動にフォールバックするので既存データは無改造で通る。移行・一括整列は
+    # contextdb resequence が行う。
     sequence:
       attribute: req_id
       by: kind
+      prefix_from: category
       format: { 機能: "FR-{:03d}", 非機能: "NFR-{:03d}" }
     attributes:
       req_id:      { kind: string, required: true, unique: true }
@@ -86,6 +92,14 @@ item_types:
       # 集約する（既存データは無改造で検証を通る）。深い親子分解が要るなら別途
       # 関係で重ねる。コード由来では抽出元モジュールを初期値に充てられる。
       category:  { kind: string }
+      # rule_kind = ルールの層。LLM の一発分類は不安定なので Phase2 は広めに拾い、
+      # fact-reconcile classify（決定論の仕分け＋Claude 裁定）で層を確定する。
+      # 生成時の振り分け先: business/calculation → 基本設計書「業務ルール/計算仕様」、
+      # validation/processing/default/error → 詳細設計書の各章（templates 参照）。
+      # 未設定（既存データ）は基本設計書側に残す＝無改造で検証を通す。extensible。
+      rule_kind: { kind: enum,
+                   values: [business, calculation, validation, processing, default, error],
+                   extensible: true }
       statement: { kind: string, required: true }
 
   constraint:
@@ -187,6 +201,24 @@ item_types:
       defect:      { kind: string }                    # 不具合ID（不合格時）
       note:        { kind: string }
 
+  # 未決着の仕様課題。fact-reconcile が検出した「層をまたいだ食い違い」
+  # （contradictions）は、片方を黙って正本に採ると仕様の決定を捏造することになり、
+  # 捨てると論点が失われる。両論を別アイテムとして残したまま、争点を open-issue で
+  # 台帳化し disputes で両側を指す。標準パックの緩和ではなく純粋な追加なので
+  # STD-E1xx（予約緩和の禁止）には抵触しない。専用の課題一覧を生成する。
+  open-issue:
+    label: 課題
+    label_field: title
+    id_prefix: iss-
+    sequence: { attribute: issue_id, format: "ISS-{:03d}" }
+    # 課題は disputes の起点（from）専用なので孤児検出の対象にしない。
+    attributes:
+      issue_id:  { kind: string, required: true, unique: true }
+      title:     { kind: string, required: true, unique: true }
+      statement: { kind: string, required: true }   # 争点
+      positions: { kind: string, required: true }   # 両論（アイテム ID 付き）
+      fact_type: { kind: string }                   # 争点が現れた仕様種別
+
 relation_types:
 
   has-column:
@@ -261,3 +293,10 @@ relation_types:
     from: test-run
     to: test-case
     cardinality: { from: "1" }   # テスト結果 1 件は必ず 1 つのテストケースに紐づく
+
+  disputes:
+    label: 争点
+    # 課題 → 争っている両側の仕様アイテム。open-issue と対で使う。
+    from: open-issue
+    to: [requirement, business-rule, constraint, external-interface, screen, module]
+    cardinality: { from: "1..*" }   # 片側しか指さない課題は両論併記になっていない

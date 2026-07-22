@@ -16,6 +16,7 @@ reconcile.json の concept (統合された正準概念) を、ターゲット c
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -232,6 +233,7 @@ def _refine_ops(reconcile: dict[str, Any],
             unresolved = [f for f, i in ((child, src), (parent, dst)) if not i]
             skipped.append({
                 "concept_id": f"refine:{child}->{parent}",
+                "code": "refine-no-fact-map",
                 "reason": "ファクトに対応する contextdb アイテム ID が未確定です: "
                           + "、".join(unresolved)
                           + " (--fact-map で与えるか doc-author で張ってください)",
@@ -267,6 +269,7 @@ def build_plan(reconcile: dict[str, Any],
         if target is None:
             skipped.append({
                 "concept_id": cid,
+                "code": "type-unmapped",
                 "reason": f"種別 '{concept.get('fact_type')}' に対応する"
                           " contextdb アイテム種別がメタモデルにありません",
             })
@@ -276,6 +279,7 @@ def build_plan(reconcile: dict[str, Any],
             skipped.append({
                 "concept_id": cid,
                 "type": target,
+                "code": "missing-attrs",
                 "reason": "ファクトから埋められない必須属性があります: "
                           + "、".join(missing) + " (doc-author で補完してください)",
             })
@@ -290,4 +294,53 @@ def build_plan(reconcile: dict[str, Any],
         })
 
     _refine_ops(reconcile, fact_map, ops, skipped)
+    if not ops:
+        # plan が空。4 分類のどれで落ちたかを skipped と item_types から診断する。
+        # （呼び出し元エージェントが「plan が空」だけ見て途方に暮れないように）
+        for line in diagnose_empty_plan(reconcile, item_types, skipped):
+            print(line, file=sys.stderr)
     return {"ops": ops}, skipped
+
+
+# plan が空になる 4 分類（依頼書 P3-4）と、それぞれの一次対処。
+_EMPTY_PLAN_HINTS = {
+    "metamodel-empty":
+        "① メタモデルの item_types が空（extends 解決失敗の可能性）。"
+        " contextdb スキルを同じプロジェクトに展開するか --metamodel で実効"
+        "メタモデルを直接指定する。",
+    "type-unmapped":
+        "② ファクト種別が contextdb 種別に対応付かない（label 突合失敗/"
+        "item_types が空）。メタモデルの label 宣言を確認する。",
+    "missing-attrs":
+        "③ 必須属性がファクトから埋まらない。doc-author の authoring で補完する。",
+    "refine-no-fact-map":
+        "④ refinement の両端 ID が未確定。--fact-map を与えるか doc-author で張る。",
+}
+
+
+def diagnose_empty_plan(reconcile: dict[str, Any],
+                        item_types: dict[str, dict[str, Any]],
+                        skipped: list[dict[str, Any]]) -> list[str]:
+    """plan が空のとき、原因が 4 分類のどれかを特定できる診断行を返す。"""
+    n_concepts = len(reconcile.get("concepts") or [])
+    n_refines = len(reconcile.get("refinements") or [])
+    lines = [f"診断: plan が空です（concepts {n_concepts} 件 / "
+             f"refinements {n_refines} 件はすべて保留）。"]
+
+    labels = [t.get("label") for t in item_types.values() if t.get("label")]
+    if not item_types or not labels:
+        # 個々の skip 理由（type-unmapped が並ぶ）より上位の根本原因。
+        lines.append("  " + _EMPTY_PLAN_HINTS["metamodel-empty"])
+        return lines
+
+    counts: dict[str, int] = {}
+    for s in skipped:
+        counts[s.get("code", "other")] = counts.get(s.get("code", "other"), 0) + 1
+    if not counts:
+        lines.append("  reconcile.json に統合・粒度差の裁定がありません"
+                     "（矛盾のみ、または全クラスタが空裁定）。")
+        return lines
+    for code, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+        hint = _EMPTY_PLAN_HINTS.get(code, f"分類不明の保留 ({code})")
+        lines.append(f"  保留 {n} 件: {hint}")
+    return lines

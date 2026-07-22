@@ -1,0 +1,8 @@
+# 機械生成（contextdb pack build）。正本は packs-src/jp-sier-std/items/doc-type/。直接編集しない。
+abstract: true
+title: 課題一覧（{system_name}）
+output: 課題一覧_{system_name}.html
+template: issue-register.html.j2
+doc_no: {"pattern": "IS-[A-Z]{2,4}-\\d{3}"}
+params:
+  required: ["system_name", "doc_no", "version"]

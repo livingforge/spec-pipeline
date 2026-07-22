@@ -56,6 +56,18 @@ def consuming_project() -> Path:
     write(root, "items/module/core.yaml",
           "- { id: mod-0001, module_id: MOD-01, class_name: CustomerListController, "
           "layer: Controller, package: jp.co.demo, description: 顧客一覧の制御, status: approved }\n")
+    # 業務ルールを rule_kind で振り分ける検証用データ（P1-1）。
+    write(root, "items/business-rule/core.yaml",
+          "- { id: br-0001, rule_id: BR-001, rule_kind: business, "
+          "statement: 与信限度を超える受注は承認待ちにする方針とする, status: approved }\n"
+          "- { id: br-0002, rule_id: BR-002, rule_kind: calculation, "
+          "statement: 送料は重量に単価を掛けた合計とする, status: approved }\n"
+          "- { id: br-0003, rule_id: BR-003, rule_kind: processing, "
+          "statement: 一覧は作成日時の降順で並べる, status: approved }\n"
+          "- { id: br-0004, rule_id: BR-004, rule_kind: error, "
+          "statement: 対象が存在しない場合はエラーとする, status: approved }\n"
+          "- { id: br-0005, rule_id: BR-005, "
+          "statement: 顧客区分は個人か法人のいずれかとする, status: approved }\n")
     write(root, "items/method/core.yaml",
           "- { id: mth-0001, method_id: MTH-01, signature: 'CustomerListController#list', "
           "description: 顧客一覧を返す, status: approved }\n")
@@ -227,6 +239,74 @@ def test_generates_all_documents():
     assert "合格" in rendered["test-result"]
     # V字右側（verifies）が対応表の要件行「検証するテスト」列に現れる
     assert "顧客一覧の表示確認" in rendered["traceability-matrix"]
+
+
+def test_business_rules_routed_by_rule_kind_across_documents():
+    """rule_kind で業務ルールを基本/詳細設計書へ振り分ける（P1-1）。
+
+    基本設計書は business/calculation（＋未設定）、詳細設計書は
+    validation/processing/default/error。混じらないことを固定する。
+    """
+    root = consuming_project()
+    store = Store.load(root)
+    packs = store.packs
+    docs = dict(standard.collect_documents(root, packs, store.problems))
+    env = make_env(store, standard.template_search_dirs(root, packs),
+                   standard.prefix_map(packs))
+    basic = env.get_template(docs["basic-design"]["template"]).render(
+        doc=docs["basic-design"], store=store, mm=store.mm,
+        generated_at="2026-07-05T00:00:00+09:00", data_rev="r", data_history=[])
+    detail = env.get_template(docs["detail-design"]["template"]).render(
+        doc=docs["detail-design"], store=store, mm=store.mm,
+        generated_at="2026-07-05T00:00:00+09:00", data_rev="r", data_history=[])
+
+    # 基本設計書: business(BR-001) + calculation(BR-002) + 未設定(BR-005) のみ。
+    assert "BR-001" in basic and "BR-002" in basic and "BR-005" in basic
+    assert "計算仕様" in basic          # calculation 用の小節が立つ
+    # 実装層は基本設計書に出さない。
+    assert "BR-003" not in basic and "BR-004" not in basic
+    # 詳細設計書: processing(BR-003) + error(BR-004) を受け、業務判断は出さない。
+    assert "BR-003" in detail and "BR-004" in detail
+    assert "BR-001" not in detail and "BR-002" not in detail and "BR-005" not in detail
+    assert "ルール仕様" in detail
+
+
+def test_issue_register_is_abstract_and_not_auto_generated():
+    """課題一覧は abstract。実体化しない限り生成対象に入らない（既定 6 文書のまま）。"""
+    root = consuming_project()
+    store = Store.load(root)
+    docs = dict(standard.collect_documents(root, store.packs, store.problems))
+    assert "issue-register" not in docs
+
+
+def test_issue_register_renders_disputes_and_positions():
+    """open-issue / disputes を実体化した課題一覧が争点・両論を描画する（P2-4 受け皿）。"""
+    root = consuming_project()
+    write(root, "items/open-issue/core.yaml",
+          "- id: iss-0001\n  issue_id: ISS-001\n"
+          "  title: マニフェスト不在時に空で続行するかエラー停止するか\n"
+          "  statement: マニフェスト不在・破損時の継続方針が層をまたいで食い違う\n"
+          "  positions: 'br-0004 は空で続行、req-0001 はエラー停止'\n"
+          "  fact_type: 業務ルール\n  status: review\n")
+    write(root, "relations/disputes.yaml",
+          "- { type: disputes, from: iss-0001, to: br-0004, status: review }\n"
+          "- { type: disputes, from: iss-0001, to: req-0001, status: review }\n")
+    write(root, "documents/issue-register.yaml",
+          "from_standard: issue-register\nsystem_name: 受発注\ndoc_no: IS-ORD-001\n"
+          "version: '1.0'\n")
+    store = Store.load(root)
+    assert not store.has_errors(), [str(p) for p in store.problems]
+    docs = dict(standard.collect_documents(root, store.packs, store.problems))
+    assert "issue-register" in docs
+    env = make_env(store, standard.template_search_dirs(root, store.packs),
+                   standard.prefix_map(store.packs))
+    html = env.get_template(docs["issue-register"]["template"]).render(
+        doc=docs["issue-register"], store=store, mm=store.mm,
+        generated_at="2026-07-05T00:00:00+09:00", data_rev="r", data_history=[])
+    assert "ISS-001" in html
+    assert "空で続行" in html                     # positions（両論）
+    # disputes の相手（両論のアイテム）がラベルで出る
+    assert "対象が存在しない場合はエラーとする" in html  # br-0004 のラベル(statement)
 
 
 def test_group_by_filter_preserves_first_appearance_and_buckets_unset():

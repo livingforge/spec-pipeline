@@ -29,12 +29,13 @@ from docextract import paths as _paths
 from docsummary import providers, settings as settings_mod
 from docsummary.settings import Settings, SettingsError
 
-from . import adjudicate, blocking, naming
+from . import adjudicate, blocking, classify as classify_mod, naming
 from . import plan as plan_mod
 
 DEFAULT_RECONCILE = "reconcile.json"
 DEFAULT_PLAN = "plan.json"
 DEFAULT_NAMES = "names.json"
+DEFAULT_CLASSIFY = "classify.json"
 
 
 def _emit(obj: Any, as_json: bool, human) -> None:
@@ -101,6 +102,23 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         print(f"生成: {cp} — 候補クラスタ {len(payload['clusters'])} 個"
               f" / ファクト {len(facts)} 件 (LLM 未呼び出し)")
         print("次の一手: クラスタを裁定して --verdicts <裁定> で reconcile.json を組む")
+        return 0
+
+    # クラスタをバッチに割って書き出す (API キー不要)。大量クラスタを分担裁定し、
+    # 各バッチの verdicts を連結して --verdicts で正規 build 経路に戻す。
+    if args.emit_batches:
+        payload = adjudicate.emit_cluster_batches(
+            facts, clusters, kinds, batch_size=args.batch_size)
+        bp = Path(args.emit_batches)
+        bp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8")
+        n_merge = sum(1 for b in payload["batches"] if b["kind"] == "merge")
+        n_refine = sum(1 for b in payload["batches"] if b["kind"] == "refine")
+        print(f"生成: {bp} — バッチ {len(payload['batches'])} 個"
+              f" (統合 {n_merge} / 粒度差 {n_refine})"
+              f" / クラスタ {len(clusters)} 個 / ファクト {len(facts)} 件 (LLM 未呼び出し)")
+        print("次の一手: バッチごとに裁定 → 各 verdicts を連結して"
+              " --verdicts <連結> で reconcile.json を組む")
         return 0
 
     # 外部裁定 (Claude 経路) を正規 build 経路で reconcile.json に組み立てる。
@@ -350,6 +368,105 @@ def cmd_name(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── classify（ルール層の rule_kind 付与） ─────────────────────
+def cmd_classify(args: argparse.Namespace) -> int:
+    types = tuple(args.type) if args.type else classify_mod.DEFAULT_TYPES
+    try:
+        items = classify_mod.load_rule_items(_naming_root(args), types)
+    except DocAgentError as e:
+        print(f"エラー: {e}", file=sys.stderr)
+        return 1
+    if not items:
+        print(f"分類対象のアイテムがありません (種別: {'、'.join(types)})",
+              file=sys.stderr)
+        return 1
+
+    batches = classify_mod.emit_batches(items, args.batch_size)
+    if args.emit_batches:
+        bp = Path(args.emit_batches)
+        bp.write_text(json.dumps(batches, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8")
+        print(f"生成: {bp} — バッチ {len(batches['batches'])} 個"
+              f" / アイテム {len(items)} 件 (LLM 未呼び出し)")
+        print("次の一手: 各バッチを裁定して --verdicts <裁定> で classify.json を組む")
+        return 0
+
+    out = Path(args.out or DEFAULT_CLASSIFY)
+    verdicts = None
+    if args.verdicts:
+        try:
+            vraw = json.loads(Path(args.verdicts).read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"エラー: 裁定ファイルが読めません: {args.verdicts} ({e})",
+                  file=sys.stderr)
+            return 1
+        vlist = vraw.get("verdicts") if isinstance(vraw, dict) else vraw
+        verdicts = {v["batch_id"]: v for v in (vlist or [])
+                    if isinstance(v, dict) and v.get("batch_id")}
+
+    # 既定は決定論の仕分けだけで classify.json を組む（API キー不要）。
+    # --verdicts は外部裁定を採り LLM を呼ばない。--llm 指定時のみ自動裁定。
+    cfg = None
+    if verdicts is None and args.llm:
+        try:
+            cfg = settings_mod.resolve_config(
+                Settings.load(args.env_file), args.provider, args.model)
+        except SettingsError as e:
+            print(f"エラー: {e}", file=sys.stderr)
+            return 1
+    if verdicts is None and not args.llm:
+        classified = classify_mod.classify_items(items)
+        result = {"version": 1,
+                  "generated_from": {
+                      "items_hash": classify_mod.items_hash(items),
+                      "prompt_version": classify_mod.PROMPT_VERSION},
+                  "classifications": classified}
+    else:
+        try:
+            result = classify_mod.build_classify(
+                cfg, items, batches, verdicts=verdicts,
+                max_output_tokens=args.max_output_tokens, timeout=args.timeout)
+        except providers.ProviderError as e:
+            print(f"エラー: {e}", file=sys.stderr)
+            return 1
+
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                   encoding="utf-8")
+    counts: dict[str, int] = {}
+    for c in result["classifications"]:
+        counts[c["rule_kind"]] = counts.get(c["rule_kind"], 0) + 1
+    summary = " / ".join(f"{k} {counts[k]}" for k in sorted(counts))
+    print(f"生成: {out} — 分類 {len(result['classifications'])} 件 ({summary})")
+    print("次の一手: fact-reconcile classify-plan で mutate plan を作る")
+    return 0
+
+
+def cmd_classify_plan(args: argparse.Namespace) -> int:
+    path = Path(args.infile or DEFAULT_CLASSIFY)
+    if not path.is_file():
+        print(f"エラー: classify.json が見つかりません: {path}。"
+              " 先に fact-reconcile classify で生成してください", file=sys.stderr)
+        return 1
+    result = json.loads(path.read_text(encoding="utf-8-sig"))
+    the_plan, skipped = classify_mod.build_classify_plan(result)
+
+    out = Path(args.out or DEFAULT_PLAN)
+    out.write_text(json.dumps(the_plan, ensure_ascii=False, indent=2) + "\n",
+                   encoding="utf-8")
+    if args.json:
+        print(json.dumps({"plan": the_plan, "skipped": skipped},
+                         ensure_ascii=False, indent=2))
+        return 0
+    print(f"生成: {out} — set-attr {len(the_plan['ops'])} 件 (rule_kind のみ)")
+    if skipped:
+        print(f"保留 {len(skipped)} 件:")
+        for s in skipped:
+            print(f"  {s['id']}: {s['reason']}")
+    print("次の一手: contextdb mutate apply "
+          f"{out} --dry-run で検証 → 外して適用 → contextdb approve")
+    return 0
+
+
 def cmd_name_plan(args: argparse.Namespace) -> int:
     path = Path(args.infile or DEFAULT_NAMES)
     if not path.is_file():
@@ -447,9 +564,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--emit-clusters", metavar="FILE",
                     help="候補クラスタを本文付きで書き出す (API キー不要)。"
                          "呼び出し元が裁定し --verdicts で戻す")
+    sp.add_argument("--emit-batches", metavar="FILE",
+                    help="候補クラスタを 1 ファイル内のバッチ (kind 別・batch_size 件ずつ)"
+                         " に割って書き出す (API キー不要)。大量クラスタを分担裁定する用")
+    sp.add_argument("--batch-size", type=int,
+                    default=adjudicate.DEFAULT_CLUSTER_BATCH_SIZE,
+                    help="--emit-batches の 1 バッチあたりクラスタ数"
+                         f" (既定 {adjudicate.DEFAULT_CLUSTER_BATCH_SIZE})")
     sp.add_argument("--verdicts", metavar="FILE",
                     help="外部裁定 (cluster_id 付き) を正規 build 経路で reconcile.json へ"
-                         " (API キー不要・LLM を呼ばない)")
+                         " (API キー不要・LLM を呼ばない)。分担裁定を連結したものでよい")
     sp.set_defaults(func=cmd_analyze)
 
     sp = sub.add_parser("review", help="reconcile.json を人間可読で一覧",
@@ -501,6 +625,40 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--in", dest="infile", help=f"names.json (既定 {DEFAULT_NAMES})")
     sp.add_argument("--out", help=f"出力先 (既定 {DEFAULT_PLAN})")
     sp.set_defaults(func=cmd_name_plan)
+
+    sp = sub.add_parser("classify",
+                        help="ルール台帳に rule_kind を付ける (決定論 + 任意で裁定)",
+                        parents=[common])
+    sp.add_argument("--root", help="contextdb データルート (既定 ./.contextdb)")
+    sp.add_argument("--type", action="append",
+                    help="分類対象の種別 (複数可。既定 "
+                         f"{'、'.join(classify_mod.DEFAULT_TYPES)})")
+    sp.add_argument("--out", help=f"出力先 (既定 {DEFAULT_CLASSIFY})")
+    sp.add_argument("--batch-size", type=int, default=40,
+                    help="1 バッチのアイテム数 (既定 40。--emit-batches 用)")
+    sp.add_argument("--emit-batches", metavar="FILE",
+                    help="分類バッチを suggested_kind 付きで書き出す (API キー不要)。"
+                         "呼び出し元が裁定し --verdicts で戻す")
+    sp.add_argument("--verdicts", metavar="FILE",
+                    help="外部裁定 (batch_id 付き) を正規 build 経路で classify.json へ"
+                         " (API キー不要・LLM を呼ばない)")
+    sp.add_argument("--llm", action="store_true",
+                    help="決定論でなく .env の LLM で裁定する (既定は決定論のみ)")
+    sp.add_argument("--env-file", help=".env のパス (既定は cwd から上方探索)")
+    sp.add_argument("--provider", help="LLM プロバイダ")
+    sp.add_argument("--model", help="モデル名/デプロイ名の上書き")
+    sp.add_argument("--max-output-tokens", type=int, default=4096,
+                    help="生成の上限トークン数")
+    sp.add_argument("--timeout", type=float, default=providers.DEFAULT_TIMEOUT,
+                    help="API タイムアウト秒")
+    sp.set_defaults(func=cmd_classify)
+
+    sp = sub.add_parser("classify-plan",
+                        help="classify.json から contextdb mutate plan を生成",
+                        parents=[common])
+    sp.add_argument("--in", dest="infile", help=f"classify.json (既定 {DEFAULT_CLASSIFY})")
+    sp.add_argument("--out", help=f"出力先 (既定 {DEFAULT_PLAN})")
+    sp.set_defaults(func=cmd_classify_plan)
 
     sp = sub.add_parser("config", help="接続設定の確認 (--check) / .env 雛形の作成 (--init)",
                         parents=[common])

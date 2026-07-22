@@ -40,6 +40,18 @@ item_types:
     attributes:
       term:        { kind: string, required: true }
       description: { kind: string, required: true }
+  data-item:
+    label: データ項目
+    label_field: name
+    attributes:
+      name:        { kind: string, required: true }
+      description: { kind: string }
+  open-issue:
+    label: 課題
+    label_field: title
+    attributes:
+      title:     { kind: string, required: true }
+      statement: { kind: string, required: true }
 relation_types: {}
 """
 
@@ -99,9 +111,10 @@ def test_clean_store_has_no_findings():
 
 def test_targets_only_name_labelled_types():
     report = run_checks(build())
-    # label_field が statement / signature / term の種別は入らない
-    assert report["types"] == ["requirement"]
-    assert report["checked"] == 2
+    # label_field が statement / signature / term / title の種別は入らない。
+    # data-item も name 見出しなので対象に入る（本文はテンプレ description）。
+    assert report["types"] == ["data-item", "requirement"]
+    assert report["checked"] == 2   # 既定ツリーに data-item アイテムは無い
 
 
 def test_type_option_narrows_targets():
@@ -232,6 +245,87 @@ def test_near_duplicate_statements_are_warn():
 
 def test_unrelated_statements_are_not_near_duplicates():
     assert find(run_checks(build()), "QC-STMT-NEAR-DUP") == []
+
+
+def test_template_descriptions_do_not_fire_near_dup():
+    # 型から機械生成された定型 description を持つ data-item が大量に完全一致しても、
+    # 近似重複は statement 属性のみを見るので誤検出しない（P1-2）。
+    rows = "\n".join(f"""
+- id: di-{i:03d}
+  name: 項目{i}
+  description: 文字列型のデータ項目。
+  status: review""" for i in range(6))
+    report = run_checks(build({"items/data-item/core.yaml": rows}))
+    assert find(report, "QC-STMT-NEAR-DUP") == []
+
+
+def test_near_dup_catches_word_order_difference():
+    # 文字 2-gram Jaccard だけでは閾値に届かない語順違いの実重複を、
+    # SequenceMatcher 併用で拾う（P1-2）。
+    report = run_checks(build({"items/requirement/core.yaml": """
+- id: req-a
+  name: 受注の締め処理
+  statement: 営業日の 18 時に当日分の受注データを締めて確定し、在庫を引き当てる。
+  status: review
+- id: req-b
+  name: 締めと在庫引当
+  statement: 在庫を引き当て、営業日の 18 時に当日分の受注データを締めて確定する。
+  status: review
+"""}))
+    hits = find(report, "QC-STMT-NEAR-DUP")
+    assert [f["where"] for f in hits] == ["req-b"], report["findings"]
+
+
+# ── ⑥ 「の仕様」接尾（QC-NAME-SUFFIX） ─────────────────────────
+
+def test_no_spec_suffix_on_verb_is_error():
+    # 動詞に「の仕様」を接いだ破綻見出し（P2-3）
+    report = run_checks(build({"items/requirement/core.yaml": """
+- id: req-suf
+  name: LLM を呼ばの仕様
+  statement: まったく異なる本文をここに置く。
+  status: review
+"""}))
+    hits = find(report, "QC-NAME-SUFFIX")
+    assert [f["where"] for f in hits] == ["req-suf"]
+    assert hits[0]["level"] == "error"
+
+
+def test_spec_suffix_on_noun_is_not_flagged():
+    # 名詞＋の＋仕様（正当）と、「〜の仕様書」（末尾が書）は誤検出しない
+    report = run_checks(build({"items/requirement/core.yaml": """
+- id: req-ok1
+  name: 決済処理の仕様
+  statement: まったく異なる本文をここに置く一。
+  status: review
+- id: req-ok2
+  name: 受注管理の仕様書
+  statement: まったく異なる本文をここに置く二。
+  status: review
+"""}))
+    assert find(report, "QC-NAME-SUFFIX") == []
+
+
+# ── ⑦ 検査できない種別の指定（QC-TYPE-SKIP） ──────────────────
+
+def test_uncheckable_type_request_is_surfaced():
+    # label_field が name でない種別を --type で渡すと黙って 0 件にせず理由を出す
+    report = run_checks(build(), types=["open-issue"])
+    hits = find(report, "QC-TYPE-SKIP")
+    assert [f["where"] for f in hits] == ["open-issue"]
+    assert hits[0]["level"] == "warn"
+    assert "label_field" in hits[0]["message"]
+
+
+def test_unknown_type_request_is_surfaced():
+    report = run_checks(build(), types=["no-such-type"])
+    hits = find(report, "QC-TYPE-SKIP")
+    assert [f["where"] for f in hits] == ["no-such-type"]
+
+
+def test_valid_name_type_request_has_no_skip_finding():
+    report = run_checks(build(), types=["requirement"])
+    assert find(report, "QC-TYPE-SKIP") == []
 
 
 # ── ④ 用語の表記ゆれ ───────────────────────────────────────────

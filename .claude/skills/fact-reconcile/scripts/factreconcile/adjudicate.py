@@ -16,6 +16,7 @@ LLM 呼び出しは docsummary の :mod:`docsummary.providers` /
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 from typing import Any, Callable
 
@@ -136,6 +137,11 @@ def cluster_id(index: int) -> str:
     return f"cl{index + 1:03d}"
 
 
+def _pairs(ids: list[str]):
+    """順不同の 2 要素組を返す（矛盾/統合の対の突き合わせ用）。"""
+    return itertools.combinations(ids, 2)
+
+
 def _ground_verdict(
     data: dict[str, Any], cluster: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -145,19 +151,14 @@ def _ground_verdict(
     この 1 箇所を通すことで、採番・出典写経の前段で同じ検証を受ける。
     """
     valid_ids = {f.get("id") for f in cluster}
-    concepts = []
-    for c in data.get("concepts") or []:
-        members = [i for i in (c.get("member_fact_ids") or []) if i in valid_ids]
-        if not members:
-            continue
-        concepts.append({
-            "member_fact_ids": sorted(members),
-            "canonical_term": (c.get("canonical_term") or "").strip(),
-            "canonical_statement": (c.get("canonical_statement") or "").strip(),
-            "variants": [v for v in (c.get("variants") or []) if str(v).strip()],
-        })
 
+    # 矛盾を先に接地する。矛盾に載ったファクト対は「同一だと確定できない」ので、
+    # 同じ対を concept（統合）に載せてはならない。推移統合で握り潰されると片方の
+    # 主張が消えるため、統合より矛盾を優先する（決定論ガード。自然言語の指示
+    # SYSTEM_PROMPT だけに依存しない）。refinement 側の対称ガードは
+    # _collect_refinements の merged チェックが担う。
     contradictions = []
+    contra_pairs: set[frozenset[str]] = set()
     for c in data.get("contradictions") or []:
         ids = [i for i in (c.get("fact_ids") or []) if i in valid_ids]
         if len(ids) < 2:
@@ -171,6 +172,24 @@ def _ground_verdict(
             "fact_ids": sorted(ids),
             "issue": (c.get("issue") or "").strip(),
             "claims": claims,
+        })
+        for a, b in _pairs(ids):
+            contra_pairs.add(frozenset((a, b)))
+
+    concepts = []
+    for c in data.get("concepts") or []:
+        members = [i for i in (c.get("member_fact_ids") or []) if i in valid_ids]
+        if not members:
+            continue
+        # 矛盾に載った対を内包する統合は捨てる（矛盾優先）。他メンバーの正当な
+        # 統合ごと落ちるが、争点を消すより安全側に倒す。
+        if any(frozenset((a, b)) in contra_pairs for a, b in _pairs(members)):
+            continue
+        concepts.append({
+            "member_fact_ids": sorted(members),
+            "canonical_term": (c.get("canonical_term") or "").strip(),
+            "canonical_statement": (c.get("canonical_statement") or "").strip(),
+            "variants": [v for v in (c.get("variants") or []) if str(v).strip()],
         })
 
     refinements = []
@@ -262,6 +281,52 @@ def emit_clusters(
             "prompt_version": PROMPT_VERSION,
         },
         "clusters": out_clusters,
+    }
+
+
+# クラスタを 1 エージェントが読み切れる大きさに割るときの既定。実運用のクラスタ数
+# （2,000 件規模）を ~20 バッチに分ける狙い。--batch-size で上書きできる。
+DEFAULT_CLUSTER_BATCH_SIZE = 100
+
+
+def cluster_batch_id(index: int) -> str:
+    """クラスタバッチの安定 ID（naming の nb… と対称の cb…）。"""
+    return f"cb{index + 1:03d}"
+
+
+def emit_cluster_batches(
+    facts: list[dict[str, Any]],
+    clusters: list[list[dict[str, Any]]],
+    kinds: list[str] | None = None,
+    batch_size: int = DEFAULT_CLUSTER_BATCH_SIZE,
+) -> dict[str, Any]:
+    """候補クラスタを 1 ファイル内のサブグループ（バッチ）に割って書き出す。
+
+    :func:`emit_clusters` の平坦な出力を kind（merge / refine）ごとに分け、
+    ``batch_size`` 件ずつのバッチにまとめる。命名パス (:func:`naming.emit_batches`)
+    と同じ「1 ファイル・複数サブグループ」形。各クラスタは :func:`cluster_id` を
+    保持するので、バッチ単位で分担裁定した結果を連結して ``verdicts`` 経路に戻せる
+    （build_reconcile は cluster_id で辞書引きするだけ）。kind を混ぜないのは、
+    統合を疑う裁定と粒度差を疑う裁定で着眼点が違うため。
+    """
+    full = emit_clusters(facts, clusters, kinds)
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for c in full["clusters"]:
+        by_kind.setdefault(c.get("kind", "merge"), []).append(c)
+
+    batches: list[dict[str, Any]] = []
+    for kind in sorted(by_kind):            # merge → refine（決定的）
+        group = by_kind[kind]               # emit_clusters の順序＝安定
+        for start in range(0, len(group), batch_size):
+            batches.append({
+                "batch_id": cluster_batch_id(len(batches)),
+                "kind": kind,
+                "clusters": group[start:start + batch_size],
+            })
+    return {
+        "version": 1,
+        "generated_from": full["generated_from"],
+        "batches": batches,
     }
 
 

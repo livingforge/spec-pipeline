@@ -7,6 +7,12 @@
 -#}
 {% import "_house-style.html.j2" as ex %}
 {% set modules = store.items_of('module') %}
+{# 実装層のルール（rule_kind: validation / processing / default / error）は
+   基本設計書の業務ルール章ではなく詳細設計書で受ける（P1-1）。 #}
+{% set impl_rules = store.items_of('business-rule')
+     |by_rule_kind(['validation', 'processing', 'default', 'error']) %}
+{% set _rk_label = {'validation': 'バリデーション一覧', 'processing': 'モジュール仕様（処理順序・アルゴリズム）',
+                    'default': 'パラメータ定義（既定値・閾値・上限）', 'error': 'エラー処理一覧'} %}
 {{ ex.page_start(doc.title) }}
 
 {# ---- 表紙 ---- #}
@@ -35,7 +41,8 @@
 {{ ex.toc([
   {'no': '1',   'sheet': '1. モジュール一覧', 'desc': 'クラスの責務・レイヤ・パッケージ'},
   {'no': '2',   'sheet': '2. メソッド仕様',   'desc': 'クラスごとのメソッドと処理概要・トレース'},
-  {'no': '付録', 'sheet': '付録 出典一覧',     'desc': 'モジュール・メソッドの出典'},
+  {'no': '3',   'sheet': '3. ルール仕様',     'desc': 'バリデーション・処理順序・既定値・エラー処理'},
+  {'no': '付録', 'sheet': '付録 出典一覧',     'desc': 'モジュール・メソッド・ルールの出典'},
 ]) }}
 {% endcall %}
 
@@ -88,7 +95,25 @@
 {% if not modules %}{{ ex.prose('モジュールは登録されていません。') }}{% endif %}
 {% endcall %}
 
-{# ---- 付録 出典一覧（モジュール + メソッド） ---- #}
+{# ---- 3. ルール仕様（実装層。rule_kind ごとに束ねる） ---- #}
+{% call ex.sheet('3. ルール仕様', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('3', 'ルール仕様') }}
+{% for kind, rows in impl_rules|group_by('rule_kind') %}
+{{ ex.subsec('3.' ~ loop.index, _rk_label.get(kind, kind)) }}
+<table class="xl">
+  <tr><th style="width:14%">ルールID</th><th>内容</th><th style="width:24%">対象</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td class="c">{{ r.attrs.rule_id }}</td><td>{{ r.attrs.statement }}</td>
+    <td>{% for c in store.relations_of('constrains', src=r.id) %}{{ c.dst|item_label }}{{ '、' if not loop.last }}{% endfor %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endfor %}
+{% if not impl_rules %}{{ ex.prose('実装層のルール（rule_kind）は登録されていません。') }}{% endif %}
+{% endcall %}
+
+{# ---- 付録 出典一覧（モジュール + メソッド + ルール） ---- #}
 {% call ex.sheet('付録 出典一覧', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
 {{ ex.sec('付録', '出典一覧') }}
 {% set rows = [] %}

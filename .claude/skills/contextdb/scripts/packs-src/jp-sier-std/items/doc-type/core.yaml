@@ -76,3 +76,18 @@
     doc: contextdb/packs/jp-sier-std/documents/traceability-matrix.yaml
     location: { section: 文書定義 }
     evidence: 要件・設計対応表（Excel 風 HTML）— 要件→基本設計→詳細設計→メソッド→テストの対応（V字トレース）とカバレッジ・ギャップ・検証ギャップを一覧する台帳（非 abstract）
+
+- id: dt-issue-register
+  name: issue-register
+  title: 課題一覧（{system_name}）
+  output: 課題一覧_{system_name}.html
+  template: issue-register.html.j2
+  abstract: true
+  doc_no: { pattern: 'IS-[A-Z]{2,4}-\d{3}' }
+  required_params: [system_name, doc_no, version]
+  order: 7
+  status: review
+  source:
+    doc: contextdb/packs/jp-sier-std/documents/issue-register.yaml
+    location: { section: 文書定義 }
+    evidence: 課題一覧（Excel 風 HTML）— fact-reconcile が検出した層をまたぐ食い違い（contradictions）を open-issue／disputes で両論併記のまま台帳化する雛形（abstract）

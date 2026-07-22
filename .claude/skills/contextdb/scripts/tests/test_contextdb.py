@@ -311,3 +311,52 @@ def test_parse_root_defaults_to_conventional_dir(tmp_path, monkeypatch):
     other.mkdir()
     (other / "metamodel.yaml").write_text("version: 1\n", encoding="utf-8")
     assert parse_root(["--root", "other"]) == (Path("other"), [])  # --root は常に最優先
+
+
+# ---------- 表示順（生成文書の並び） ----------
+
+SEQ_METAMODEL = """
+version: 1
+item_types:
+  requirement:
+    label: 要件
+    label_field: name
+    sequence: { attribute: req_id, format: "FR-{:03d}" }
+    attributes:
+      name:   { kind: string, required: true }
+      req_id: { kind: string, unique: true }
+relation_types: {}
+"""
+
+
+def seq_store(records: str) -> "Store":
+    return build({"metamodel": SEQ_METAMODEL, "items/requirement/core.yaml": records})
+
+
+def test_items_of_sorts_by_sequence_attribute_not_yaml_order():
+    """YAML の記述順ではなく表示 ID 順に並ぶ（文書で番号が飛んで見えるのを防ぐ）。"""
+    s = seq_store(
+        "- { id: r-c, name: C, req_id: FR-012 }\n"
+        "- { id: r-a, name: A, req_id: FR-002 }\n"
+        "- { id: r-b, name: B, req_id: FR-004 }\n")
+    assert [i.attrs["req_id"] for i in s.items_of("requirement")] == [
+        "FR-002", "FR-004", "FR-012"]
+
+
+def test_items_of_sorts_numerically_across_zero_pad_widths():
+    """桁数が揃っていなくても数値として並ぶ（辞書順だと MOD-007 < MOD-01 になる）。"""
+    s = seq_store(
+        "- { id: r-1, name: A, req_id: FR-01 }\n"
+        "- { id: r-2, name: B, req_id: FR-007 }\n"
+        "- { id: r-3, name: C, req_id: FR-0002 }\n")
+    assert [i.attrs["req_id"] for i in s.items_of("requirement")] == [
+        "FR-01", "FR-0002", "FR-007"]
+
+
+def test_items_without_sequence_attribute_sort_last_by_id():
+    """連番属性を持たないアイテムは ID 順で末尾に置く（並びを常に決定的にする）。"""
+    s = seq_store(
+        "- { id: r-z, name: Z }\n"
+        "- { id: r-y, name: Y }\n"
+        "- { id: r-1, name: A, req_id: FR-003 }\n")
+    assert [i.id for i in s.items_of("requirement")] == ["r-1", "r-y", "r-z"]

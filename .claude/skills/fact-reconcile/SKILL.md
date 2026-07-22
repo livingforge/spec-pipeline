@@ -98,8 +98,10 @@ fact-reconcile analyze --emit-clusters clusters.json
 #    形式: {"verdicts":[{"cluster_id":"cl001",
 #             "concepts":[{"member_fact_ids":[...],"canonical_term":"…",
 #                          "canonical_statement":"…","variants":[…]}],
-#             "contradictions":[{"fact_ids":[...],"issue":"…","claims":[…]}]}, …]}
+#             "contradictions":[{"fact_ids":[...],"issue":"…","claims":[…]}],
+#             "refinements":[{"parent_fact_id":"…","child_fact_id":"…","rationale":"…"}]}, …]}
 #    cluster_id は clusters.json のものをそのまま使う（裁定の無いクラスタは統合なし扱い）
+#    kind:"refine" のバッチでは refinements を返す（省くと粒度差＝矛盾検出が丸ごと落ちる）
 
 # ③ 外部裁定を正規 build 経路で reconcile.json に組む（API キー不要・LLM 未呼び出し）
 fact-reconcile analyze --verdicts verdicts.json --out reconcile.json
@@ -107,6 +109,45 @@ fact-reconcile analyze --verdicts verdicts.json --out reconcile.json
 
 以降は通常どおり `review` → `plan` → `contextdb mutate apply` → `approve`。
 `.env` を設定している場合の自動裁定（引数なしの `analyze`）は従来どおり並存する。
+
+### 大量クラスタを分担裁定する（チャンク分割 → 並列 → 連結）
+
+実運用のクラスタ数は 2,000 件規模になり 1 エージェントが読み切れない。`--emit-batches`
+で **1 ファイル内のバッチ（サブグループ）** に割り、バッチ単位でサブエージェントに
+分担させる。**refine を捨てず全件裁定することが重要** — merge だけ裁定すると
+**層をまたいだ矛盾が 1 件も検出できない**（実測: merge のみ 0 件 / refine 全件 27 件）。
+
+```bash
+# ① クラスタをバッチに割って 1 ファイルに書き出す（kind 別・batch_size 件ずつ）
+fact-reconcile analyze --emit-batches batches.json --batch-size 100
+#   → {"version":1,"generated_from":{…},
+#      "batches":[{"batch_id":"cb001","kind":"merge","clusters":[…]}, …]}
+#   merge バッチと refine バッチが分かれる（着眼点が違うので混ぜない）
+
+# ② batches.json の各バッチを（並列）サブエージェントに渡して裁定させ、
+#    バッチごとに verdicts（cluster_id 付き配列）を返させる。
+#    各クラスタの cluster_id はそのまま使う。ブロック ID の割り当ては不要。
+
+# ③ 全バッチの verdicts を 1 配列に連結して {"verdicts":[…]} にまとめる。
+#    連結は単純結合でよい — build は cluster_id で辞書引きするだけで順序・
+#    バッチ境界に依存しない（分担裁定 → 連結 → --verdicts で一括裁定と同一の
+#    reconcile.json が得られる）。相互 refine の畳み込み・重複排除は build 側が
+#    行うのでサブエージェントにさせなくてよい。
+
+# ④ 正規 build 経路に戻す
+fact-reconcile analyze --verdicts verdicts.json --out reconcile.json
+```
+
+**バッチ裁定プロンプトに必ず含める 2 文**（省くと品質が落ちる）:
+
+- **「ブロッキングは表層一致で束ねただけなので、成立しないクラスタが大半である。
+  空で返すのが正しい裁定である」** — 過剰起票を防ぐ（無いとクラスタを無理に統合する）。
+- **「矛盾は自動解決せず両論併記せよ」** — 統合で握り潰さず contradiction に出させる。
+
+> 注意: 分担裁定の verdicts を連結する前提は、全バッチが **同一の facts・同一の
+> ブロッキング条件**（`--block-threshold` / `--refine-*` 等）から `--emit-batches`
+> したものであること。条件を変えて再生成すると cluster_id（位置由来）が別クラスタを
+> 指すため、連結が無言で壊れる。emit と build は同じフラグで回すこと。
 
 ## 出力の性質（重要）
 

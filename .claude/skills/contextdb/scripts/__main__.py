@@ -56,6 +56,8 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "sync-check": ("sync_check.py", "実装と正本の乖離を検出"),
     "quality": ("quality_check.py", "見出し・本文の品質を検出（命名/重複）"),
     "mutate": ("mutate.py", "アイテム/関係の追加・変更・承認"),
+    "renumber": ("renumber.py", "通番 ID をレビュー後に一度だけ機能ごとの連番へ振り直す"),
+    "resequence": ("resequence.py", "表示連番をカテゴリ接頭辞つき安定連番へ再採番（案C）"),
 }
 ALIASES = {"validate": "engine", "sync_check": "sync-check"}
 

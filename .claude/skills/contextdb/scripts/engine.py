@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -61,6 +62,13 @@ def _parse_card(spec) -> tuple[int, int | None] | None:
 def _qualify(ns: str, ref) -> str:
     """名前空間ディレクトリ配下の ID 参照を修飾する（既に修飾済みならそのまま）。"""
     return ref if not ns or ":" in str(ref) else f"{ns}:{ref}"
+
+
+def _natkey(s: str) -> tuple:
+    """数字列を数値として比べる自然順のキー。'MOD-01' と 'MOD-007' が桁数に
+    依らず正しく並ぶ（辞書順だと 'MOD-007' < 'MOD-01' になってしまう）。"""
+    return tuple((int(p), "") if p.isdigit() else (-1, p)
+                 for p in re.split(r"(\d+)", s) if p)
 
 
 def _normalize_source(src, where: str, problems: list["Problem"]) -> list | None:
@@ -176,6 +184,7 @@ class Store:
         self.relations: list[Relation] = []
         self.problems: list[Problem] = []
         self.packs: list = []            # 標準パックの継承チェーン（extends 使用時のみ）
+        self.display: dict = {}          # 表示連番の消費側設定（display.yaml。opt-in）
 
     # ---------- 読み込み ----------
 
@@ -202,6 +211,7 @@ class Store:
         store = Store(mm)
         store.problems = problems
         store.packs = packs
+        store.display = _load_display(root)
         store._load_items(root / "items")
         store._load_relations(root / "relations")
         store._validate_relations()
@@ -412,8 +422,22 @@ class Store:
 
     # ---------- クエリ API（ジェネレータが使う） ----------
 
+    def _display_key(self, item: Item) -> tuple:
+        """表示順のキー。metamodel の sequence 属性（FR-001 等）を優先し、
+        持たないアイテムは ID 順で後ろに置く。
+
+        YAML の記述順のままだと生成文書で FR-012 が FR-003 より前に出るなど
+        番号が飛んで見えるため、ジェネレータが使う口で一元的に並べる。
+        """
+        seq = (self.mm.item_types.get(item.type) or {}).get("sequence") or {}
+        attr = seq.get("attribute")
+        if attr and item.attrs.get(attr) is not None:
+            return (0, _natkey(str(item.attrs[attr])))
+        return (1, _natkey(item.id))
+
     def items_of(self, t: str) -> list[Item]:
-        return [i for i in self.items.values() if i.type == t]
+        return sorted((i for i in self.items.values() if i.type == t),
+                      key=self._display_key)
 
     def relations_of(self, rtype: str | None = None,
                      src: str | None = None, dst: str | None = None) -> list[Relation]:
@@ -430,7 +454,8 @@ class Store:
         """dsts のいずれかへ rtype 関係を張っている from 側アイテム（逆引き）。"""
         ds = set(dsts)
         srcs = {r.src for r in self.relations if r.type == rtype and r.dst in ds}
-        return [i for i in self.items.values() if i.id in srcs]
+        return sorted((i for i in self.items.values() if i.id in srcs),
+                      key=lambda i: (i.type, self._display_key(i)))
 
     def has_errors(self) -> bool:
         return any(p.level == "error" for p in self.problems)
@@ -464,6 +489,34 @@ def _records(path: Path, problems: list | None = None) -> list[dict]:
         return []
     recs = data if isinstance(data, list) else [data]
     return [r for r in recs if isinstance(r, dict)]
+
+
+def _load_display(root: Path) -> dict:
+    """消費側の表示連番設定 display.yaml を読む（無ければ空）。
+
+    conform から見えない opt-in の追加設定。標準パックの sequence が
+    ``prefix_from`` を宣言していても、この設定が無ければ接頭辞なしの既定挙動に
+    フォールバックする（既存データを壊さない）。
+    形式: ``category_abbrev: {<カテゴリ値>: <略号>, …}`` ／ 任意で ``fallback: <略号>``。
+    """
+    p = root / "display.yaml"
+    if not p.is_file():
+        return {}
+    try:
+        with open(p, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except yaml.YAMLError:
+        return {}
+
+
+def display_abbrev(display: dict, category) -> str | None:
+    """カテゴリ値 → 略号。未定義カテゴリは None（未分類/None は fallback を許容）。"""
+    table = display.get("category_abbrev") or {}
+    if category in table:
+        return table[category]
+    if category in (None, "", "未分類"):
+        return display.get("fallback")
+    return None
 
 
 def parse_root(args: list[str], default: Path = ROOT) -> tuple[Path, list[str]]:

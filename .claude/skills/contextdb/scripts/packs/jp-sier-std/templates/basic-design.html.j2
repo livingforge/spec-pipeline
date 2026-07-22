@@ -14,7 +14,11 @@
 {% import "_house-style.html.j2" as ex %}
 {% set screens = store.items_of('screen') %}
 {% set entities = store.items_of('entity') %}
-{% set rules = store.items_of('business-rule') %}
+{# 業務ルールは rule_kind で振り分ける。基本設計書は business（＋未設定は既存
+   データ保護のため残す）と calculation（計算仕様）のみを載せ、実装層
+   （validation / processing / default / error）は詳細設計書へ回す（P1-1）。 #}
+{% set rules = store.items_of('business-rule')|by_rule_kind(['business'], keep_unset=true) %}
+{% set calc_rules = store.items_of('business-rule')|by_rule_kind(['calculation']) %}
 {% set ifaces = store.items_of('external-interface') %}
 {{ ex.page_start(doc.title) }}
 
@@ -120,6 +124,20 @@
   {% endfor %}
 </table>
 {% endfor %}
+{% if not rules %}{{ ex.prose('業務判断のルールは登録されていません。') }}{% endif %}
+{# 計算仕様（rule_kind: calculation）。算出ルール・計算式は業務ルールと分けて示す。 #}
+{% if calc_rules %}
+{{ ex.subsec('4.計', '計算仕様') }}
+<table class="xl">
+  <tr><th style="width:14%">ルールID</th><th>算出内容</th><th style="width:24%">対象</th></tr>
+  {% for r in calc_rules %}
+  <tr>
+    <td class="c">{{ r.attrs.rule_id }}</td><td>{{ r.attrs.statement }}</td>
+    <td>{% for c in store.relations_of('constrains', src=r.id) %}{{ c.dst|item_label }}{{ '、' if not loop.last }}{% endfor %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
 {% endcall %}
 {# ---- 5. 外部インターフェース（方向(direction)で見出しを束ねる） ---- #}
 {% call ex.sheet('5. 外部インターフェース', doc.title, doc.doc_no, doc.version) %}
@@ -145,7 +163,7 @@
 {% call ex.sheet('付録 出典一覧', doc.title, doc.doc_no, doc.version) %}
 {{ ex.sec('付録', '出典一覧') }}
 {% set rows = [] %}
-{% for it in screens + entities + rules + ifaces %}
+{% for it in screens + entities + rules + calc_rules + ifaces %}
 {% if it.source %}{% set _ = rows.append({'name': it.label(mm), 'kind': mm.item_types[it.type].label,
     'id': it.id, 'src': it.source}) %}{% endif %}
 {% endfor %}

@@ -68,6 +68,23 @@ def group_by(items, attr: str, default: str = "未分類"):
     return [(k, groups[k]) for k in keys]
 
 
+def by_rule_kind(items, kinds, keep_unset: bool = False):
+    """business-rule を rule_kind で振り分けるテンプレート用フィルタ。
+
+    基本設計書は business / calculation（＋未設定は既存データ保護のため残す）、
+    詳細設計書は validation / processing / default / error を受け持つ。特定種別の
+    知識はここに閉じず、テンプレートが kinds を渡して章を組む。
+    """
+    want = set(kinds)
+    out = []
+    for it in items:
+        rk = it.attrs.get("rule_kind") if hasattr(it, "attrs") else None
+        rk = rk if (rk is not None and str(rk).strip() != "") else None
+        if rk in want or (keep_unset and rk is None):
+            out.append(it)
+    return out
+
+
 def git_rev(root: Path) -> str:
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root,
@@ -100,6 +117,7 @@ def make_env(store: Store, template_dirs: Path | list[Path],
     env.filters["item_label"] = lambda iid: (
         store.items[iid].label(store.mm) if iid in store.items else iid)
     env.filters["group_by"] = group_by
+    env.filters["by_rule_kind"] = by_rule_kind
     return env
 
 

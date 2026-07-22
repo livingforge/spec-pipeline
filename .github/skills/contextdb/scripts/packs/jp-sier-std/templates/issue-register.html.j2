@@ -1,0 +1,96 @@
+{#-
+  課題一覧（未決着仕様の台帳）— プロジェクト固有文書。
+
+  fact-reconcile が検出した「層をまたいだ食い違い」（contradictions）は、片方を
+  黙って正本に採ると仕様の決定を捏造することになり、捨てると論点が失われる。ここでは
+  争点（open-issue）と、両論をそのまま残した仕様アイテム（disputes の相手）を対にして
+  台帳化し、人の裁定に委ねる。様式は標準パックの _house-style を import して継承する。
+-#}
+{% import "_house-style.html.j2" as ex %}
+{% set issues = store.items_of('open-issue') %}
+{{ ex.page_start(doc.title) }}
+
+{{ ex.cover(doc.title, doc.get('doc_no', ''), doc.get('version', ''),
+            generated_at[:10], doc.get('org', ''),
+            '本書は仕様データ（contextdb）から自動生成された未決着事項の台帳である。') }}
+
+{% call ex.sheet('改訂履歴', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{% if data_history %}
+{% set rows = [] %}
+{% for h in data_history %}
+{% set _ = rows.append({'version': loop.index, 'date': h.date,
+    'note': (h.subject ~ '：' if h.subject and not h.initial else '') ~ h.summary
+            ~ '（' ~ (h.short if h.short else '未コミット') ~ '）', 'author': h.author}) %}
+{% endfor %}
+{{ ex.rev_history(rows) }}
+{% else %}
+{{ ex.rev_history([{'version': doc.get('version', '1.0'), 'date': generated_at[:10],
+    'note': '初版（データ版 ' ~ data_rev ~ ' から自動生成）', 'author': 'contextdb'}]) }}
+{% endif %}
+{% endcall %}
+
+{% call ex.sheet('目次', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.toc([
+  {'no': '1',   'sheet': '1. 概要',     'desc': '本台帳の位置づけと課題件数'},
+  {'no': '2',   'sheet': '2. 課題一覧', 'desc': '争点と両論の対照表'},
+  {'no': '3',   'sheet': '3. 課題明細', 'desc': '課題 1 件ごとの争点・両論・出典'},
+  {'no': '付録', 'sheet': '付録 出典一覧', 'desc': '各課題の出典'},
+]) }}
+{% endcall %}
+
+{# ---- 1. 概要 ---- #}
+{% call ex.sheet('1. 概要', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('1', '概要') }}
+{{ ex.prose('本書は、仕様の名寄せ（fact-reconcile）が検出した層をまたぐ食い違いを、'
+            'どちらか片方に決めずに争点として台帳化したものである。各課題は両論を指す'
+            '（disputes）。裁定は本書の外で人が行い、決定を正本に反映する。') }}
+{{ ex.kv([('未決着の課題', issues|length ~ ' 件')]) }}
+{% endcall %}
+
+{# ---- 2. 課題一覧（争点と両論の対照表） ---- #}
+{% call ex.sheet('2. 課題一覧', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('2', '課題一覧') }}
+{% if issues %}
+<table class="xl">
+  <tr><th style="width:12%">課題ID</th><th style="width:26%">争点</th>
+      <th>両論（争っているアイテム）</th></tr>
+  {% for iss in issues %}
+  <tr>
+    <td class="c">{{ iss.attrs.issue_id }}</td>
+    <td>{{ iss.attrs.title }}</td>
+    <td>{% for d in store.relations_of('disputes', src=iss.id) %}{{ d.dst|item_label }}{{ '、' if not loop.last }}{% else %}（未リンク：両論併記になっていない）{% endfor %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+{{ ex.prose('未決着の課題は登録されていません。') }}
+{% endif %}
+{% endcall %}
+
+{# ---- 3. 課題明細 ---- #}
+{% call ex.sheet('3. 課題明細', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('3', '課題明細') }}
+{% for iss in issues %}
+{{ ex.subsec('3.' ~ loop.index, iss.attrs.issue_id ~ '　' ~ iss.attrs.title) }}
+{{ ex.kv([('争点', iss.attrs.statement),
+          ('両論', iss.attrs.positions),
+          ('現れた仕様種別', iss.attrs.get('fact_type', '—')),
+          ('争っているアイテム',
+           store.relations_of('disputes', src=iss.id)|map(attribute='dst')|map('item_label')|join('、') or '—')]) }}
+{% else %}
+{{ ex.prose('明細はありません。') }}
+{% endfor %}
+{% endcall %}
+
+{# ---- 付録 出典一覧 ---- #}
+{% call ex.sheet('付録 出典一覧', doc.title, doc.get('doc_no', ''), doc.get('version', '')) %}
+{{ ex.sec('付録', '出典一覧') }}
+{% set rows = [] %}
+{% for iss in issues %}
+{% if iss.source %}{% set _ = rows.append({'name': iss.label(mm), 'kind': mm.item_types[iss.type].label,
+    'id': iss.id, 'src': iss.source}) %}{% endif %}
+{% endfor %}
+{% if rows %}{{ ex.appendix_sources(rows) }}{% else %}{{ ex.prose('出典の登録はありません。') }}{% endif %}
+{% endcall %}
+
+{{ ex.page_end() }}
